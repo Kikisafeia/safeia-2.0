@@ -1,0 +1,31 @@
+MATRIZ DE IDENTIFICACIÓN DE PELIGROS, EVALUACIÓN Y CONTROL DE RIESGOS (IPERC)
+
+Proceso/Área:
+Fecha:
+Responsable:
+
+ACTIVIDAD | PELIGRO | RIESGO | PROBABILIDAD | SEVERIDAD | NIVEL DE RIESGO | MEDIDAS DE CONTROL
+
+1. Instrucciones:
+   - Identificar las actividades del proceso
+   - Identificar los peligros asociados
+   - Evaluar los riesgos
+   - Determinar controles
+
+2. Criterios de Evaluación:
+   Probabilidad (1-5)
+   Severidad (1-5)
+   Nivel de Riesgo = Probabilidad x Severidad
+
+3. Niveles de Riesgo:
+   Bajo: 1-8
+   Medio: 9-15
+   Alto: 16-25
+
+4. Medidas de Control:
+   - Eliminación
+   - Sustitución
+   - Controles de ingeniería
+   - Señalización/advertencias
+   - Controles administrativos
+   - EPP

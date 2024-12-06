@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Mejora el contraste y la legibilidad */
+  body {
+    @apply text-gray-900 antialiased;
+  }
+
+  /* Mejora la visibilidad del foco para usuarios de teclado */
+  :focus-visible {
+    @apply outline-none ring-2 ring-safeia-yellow ring-offset-2;
+  }
+}
+
+@layer utilities {
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+      linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Reduce el movimiento para usuarios que lo prefieren */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
