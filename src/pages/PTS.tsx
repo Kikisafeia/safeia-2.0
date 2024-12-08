@@ -154,14 +154,14 @@ export default function PTS() {
                 id="sector"
                 value={sector}
                 onChange={(e) => setSector(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 placeholder="Ej: Construcción, Minería, Manufactura..."
               />
             </div>
             <button
               type="submit"
               disabled={loadingSuggestions || !sector.trim()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-safeia-yellow hover:bg-safeia-yellow-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-safeia-yellow disabled:bg-gray-400 transition-colors duration-200"
+              className="w-full px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {loadingSuggestions ? (
                 <>
@@ -224,7 +224,7 @@ export default function PTS() {
                 name="activity"
                 rows={3}
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 placeholder="Describe la actividad que se realizará..."
                 value={formData.activity}
                 onChange={handleChange}
@@ -239,7 +239,7 @@ export default function PTS() {
                 id="riskLevel"
                 name="riskLevel"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 value={formData.riskLevel}
                 onChange={handleChange}
               >
@@ -259,7 +259,7 @@ export default function PTS() {
                 id="equipment"
                 name="equipment"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 placeholder="Lista los equipos y herramientas necesarios..."
                 value={formData.equipment}
                 onChange={handleChange}
@@ -275,7 +275,7 @@ export default function PTS() {
                 id="location"
                 name="location"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 placeholder="Indica la ubicación donde se realizará el trabajo..."
                 value={formData.location}
                 onChange={handleChange}
@@ -286,7 +286,7 @@ export default function PTS() {
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-safeia-yellow hover:bg-safeia-yellow-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-safeia-yellow disabled:bg-gray-400 transition-colors duration-200"
+                className="px-4 py-2 bg-safeia-black text-white text-sm rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300"
               >
                 {loading ? (
                   <>

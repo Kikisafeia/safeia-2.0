@@ -18,11 +18,22 @@ export interface AgentRequest {
 }
 
 export interface AgentResponse {
-  messageId: string;
-  content: string;
-  timestamp: string;
-  agentId: string;
-  metadata?: {
-    conversationId?: string;
-  };
+  text: string;
+  conversationId?: string;
+  messageId?: string;
+  files?: Array<{
+    url: string;
+    name: string;
+    type: string;
+  }>;
+}
+
+export interface MessageFile {
+  file: File;
+  preview: string;
+  id?: string;
+  url?: string;
+  name?: string;
+  type?: string;
+  mime_type?: string;
 }

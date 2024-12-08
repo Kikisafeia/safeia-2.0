@@ -76,6 +76,7 @@ interface TaskWithFullEvaluation extends TaskWithRisk {
 export default function RiskMatrix() {
   // Estados básicos
   const [processType, setProcessType] = useState<'Operación' | 'Apoyo'>('Operación');
+  const [country, setCountry] = useState<string>('');
   const [activityName, setActivityName] = useState('');
   const [routineType, setRoutineType] = useState<'Rutinaria' | 'No Rutinaria'>('Rutinaria');
   const [suggestedTasks, setSuggestedTasks] = useState<Task[]>([]);
@@ -87,7 +88,7 @@ export default function RiskMatrix() {
   const [loadingLegal, setLoadingLegal] = useState(false);
 
   const handleGetSuggestions = async () => {
-    if (!processType || !activityName || !routineType) {
+    if (!processType || !activityName || !routineType || !country) {
       setError('Por favor, complete todos los campos antes de solicitar sugerencias.');
       return;
     }
@@ -100,7 +101,7 @@ export default function RiskMatrix() {
     try {
       const [tasks, legal] = await Promise.all([
         getSuggestedTasks(processType, activityName, routineType),
-        getLegalFramework('Chile', processType, activityName)
+        getLegalFramework(country, processType, activityName)
       ]);
       setSuggestedTasks(tasks);
       // setLegalFramework(legal);
@@ -138,7 +139,7 @@ export default function RiskMatrix() {
           const riskAssessment = await assessTaskRisks(task);
           const evaluation = await evaluateTaskRisk({ ...task, riskAssessment });
           const controlPlan = await determineControls({ ...task, riskAssessment }, evaluation);
-          const legalFramework = await getLegalFramework('Chile', processType, task.description);
+          const legalFramework = await getLegalFramework(country, processType, task.description);
           
           return {
             ...task,
@@ -170,7 +171,7 @@ export default function RiskMatrix() {
       'Detalle': task.hazardGEMA.detail || '',
       'Riesgo Asociado': task.riskAssessment?.associatedRisk || '',
       'Criticidad': task.riskAssessment?.isCritical ? 'Crítico' : 'No Crítico',
-      'Marco Legal': task.legalFramework?.map(legal => `${legal.name}: ${legal.description}`).join('\n') || '',
+      'Marco Legal': task.legalFramework?.map(legal => `${legal.name} - ${legal.description}`).join('\n') || '',
       'Probabilidad': task.evaluation?.probability.value || '',
       'Exposición': task.evaluation?.exposure.value || '',
       'Consecuencia': task.evaluation?.consequence.value || '',
@@ -187,6 +188,84 @@ export default function RiskMatrix() {
     exportToExcel(excelData, 'Evaluacion_de_Riesgos');
   };
 
+  const handleTaskUpdate = (taskIndex: number, field: string, value: any) => {
+    const updatedTasks = [...selectedTasks];
+    const task = { ...updatedTasks[taskIndex] };
+
+    // Actualizar el campo específico basado en la ruta del campo
+    const fieldParts = field.split('.');
+    let current: any = task;
+    for (let i = 0; i < fieldParts.length - 1; i++) {
+      if (!current[fieldParts[i]]) {
+        current[fieldParts[i]] = {};
+      }
+      current = current[fieldParts[i]];
+    }
+    current[fieldParts[fieldParts.length - 1]] = value;
+
+    updatedTasks[taskIndex] = task;
+    setSelectedTasks(updatedTasks);
+  };
+
+  const handleControlUpdate = (taskIndex: number, controlIndex: number, field: string, value: any) => {
+    const updatedTasks = [...selectedTasks];
+    const task = { ...updatedTasks[taskIndex] };
+    if (!task.controlPlan) return;
+    
+    const updatedControls = [...task.controlPlan.controls];
+    const control = { ...updatedControls[controlIndex] };
+
+    // Actualizar el campo específico del control
+    const fieldParts = field.split('.');
+    let current: any = control;
+    for (let i = 0; i < fieldParts.length - 1; i++) {
+      if (!current[fieldParts[i]]) {
+        current[fieldParts[i]] = {};
+      }
+      current = current[fieldParts[i]];
+    }
+    current[fieldParts[fieldParts.length - 1]] = value;
+
+    updatedControls[controlIndex] = control;
+    task.controlPlan.controls = updatedControls;
+    updatedTasks[taskIndex] = task;
+    setSelectedTasks(updatedTasks);
+  };
+
+  const handleAddControl = (taskIndex: number) => {
+    const updatedTasks = [...selectedTasks];
+    const task = { ...updatedTasks[taskIndex] };
+    if (!task.controlPlan) {
+      task.controlPlan = {
+        controls: [],
+        residualRisk: { magnitude: 0, classification: '', justification: '' },
+        recommendations: []
+      };
+    }
+    
+    task.controlPlan.controls.push({
+      type: '',
+      priority: 1,
+      description: '',
+      effectiveness: { expected: 0, description: '' },
+      responsibles: [],
+      deadline: { timeframe: '', justification: '' }
+    });
+    
+    updatedTasks[taskIndex] = task;
+    setSelectedTasks(updatedTasks);
+  };
+
+  const handleRemoveControl = (taskIndex: number, controlIndex: number) => {
+    const updatedTasks = [...selectedTasks];
+    const task = { ...updatedTasks[taskIndex] };
+    if (!task.controlPlan) return;
+    
+    task.controlPlan.controls = task.controlPlan.controls.filter((_, index) => index !== controlIndex);
+    updatedTasks[taskIndex] = task;
+    setSelectedTasks(updatedTasks);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <DashboardNavbar />
@@ -197,11 +276,43 @@ export default function RiskMatrix() {
             <h2 className="text-xl font-semibold mb-6">Matriz de Riesgos</h2>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700">País</label>
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                >
+                  <option value="">Seleccione un país</option>
+                  <option value="Argentina">Argentina</option>
+                  <option value="Bolivia">Bolivia</option>
+                  <option value="Brasil">Brasil</option>
+                  <option value="Chile">Chile</option>
+                  <option value="Colombia">Colombia</option>
+                  <option value="Costa Rica">Costa Rica</option>
+                  <option value="Cuba">Cuba</option>
+                  <option value="Ecuador">Ecuador</option>
+                  <option value="El Salvador">El Salvador</option>
+                  <option value="España">España</option>
+                  <option value="Guatemala">Guatemala</option>
+                  <option value="Haití">Haití</option>
+                  <option value="Honduras">Honduras</option>
+                  <option value="México">México</option>
+                  <option value="Nicaragua">Nicaragua</option>
+                  <option value="Panamá">Panamá</option>
+                  <option value="Paraguay">Paraguay</option>
+                  <option value="Perú">Perú</option>
+                  <option value="Puerto Rico">Puerto Rico</option>
+                  <option value="República Dominicana">República Dominicana</option>
+                  <option value="Uruguay">Uruguay</option>
+                  <option value="Venezuela">Venezuela</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Tipo de Proceso</label>
                 <select
                   value={processType}
                   onChange={(e) => setProcessType(e.target.value as 'Operación' | 'Apoyo')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                  className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 >
                   <option value="Operación">Operación</option>
                   <option value="Apoyo">Apoyo</option>
@@ -214,7 +325,7 @@ export default function RiskMatrix() {
                   type="text"
                   value={activityName}
                   onChange={(e) => setActivityName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                  className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                   placeholder="Ej: Mantenimiento de equipos"
                 />
               </div>
@@ -224,7 +335,7 @@ export default function RiskMatrix() {
                 <select
                   value={routineType}
                   onChange={(e) => setRoutineType(e.target.value as 'Rutinaria' | 'No Rutinaria')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                  className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                 >
                   <option value="Rutinaria">Rutinaria</option>
                   <option value="No Rutinaria">No Rutinaria</option>
@@ -234,7 +345,7 @@ export default function RiskMatrix() {
               <button
                 onClick={handleGetSuggestions}
                 disabled={loadingSuggestions}
-                className="w-full px-4 py-2 bg-safeia-black text-white rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {loadingSuggestions ? (
                   <span className="flex items-center justify-center">
@@ -306,7 +417,7 @@ export default function RiskMatrix() {
                 <h3 className="text-lg font-semibold">Evaluación de Riesgos</h3>
                 <button
                   onClick={handleExportToExcel}
-                  className="px-4 py-2 bg-safeia-black text-white text-sm rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300"
+                  className="px-4 py-2 bg-safeia-yellow text-safeia-black text-sm rounded-md hover:bg-safeia-yellow-dark hover:text-safeia-black transition duration-300"
                 >
                   Exportar a Excel
                 </button>
@@ -347,135 +458,220 @@ export default function RiskMatrix() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {selectedTasks.map((task, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{task.description}</div>
-                        </td>
+                    {selectedTasks.map((task, taskIndex) => (
+                      <tr key={taskIndex} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-sm text-gray-900 font-medium">{task.hazardGEMA.category}</div>
-                            <div className="text-xs text-gray-500">
-                              <span className="font-medium">Peligro:</span> {task.hazardGEMA.hazard}
-                            </div>
-                            {task.hazardGEMA.subHazard && (
-                              <div className="text-xs text-gray-500">
-                                <span className="font-medium">Sub-Peligro:</span> {task.hazardGEMA.subHazard}
-                              </div>
-                            )}
-                            {task.hazardGEMA.detail && (
-                              <div className="text-xs text-gray-500">
-                                <span className="font-medium">Detalle:</span> {task.hazardGEMA.detail}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {task.riskAssessment && (
-                            <div>
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                                task.riskAssessment.isCritical 
-                                  ? 'bg-red-100 text-red-800' 
-                                  : 'bg-green-100 text-green-800'
-                              }`}>
-                                {task.riskAssessment.isCritical ? 'Crítico' : 'No Crítico'}
-                              </span>
-                              <div className="text-xs text-gray-500 mt-1">{task.riskAssessment.associatedRisk}</div>
-                            </div>
-                          )}
+                          <input
+                            type="text"
+                            value={task.description}
+                            onChange={(e) => handleTaskUpdate(taskIndex, 'description', e.target.value)}
+                            className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                          />
                         </td>
                         <td className="px-6 py-4">
                           <div className="space-y-2">
-                            {task.legalFramework?.map((legal, idx) => (
-                              <div key={idx} className="text-xs">
-                                {legal.url ? (
-                                  <a
-                                    href={legal.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-safeia-yellow hover:text-safeia-yellow-dark flex items-center"
-                                  >
-                                    {legal.name}
-                                    <ExternalLink className="w-3 h-3 ml-1" />
-                                  </a>
-                                ) : (
-                                  <span className="font-medium">{legal.name}</span>
-                                )}
-                                <p className="text-gray-500 mt-0.5 text-xs line-clamp-2" title={legal.description}>
-                                  {legal.description}
-                                </p>
+                            <select
+                              value={task.hazardGEMA.category}
+                              onChange={(e) => handleTaskUpdate(taskIndex, 'hazardGEMA.category', e.target.value)}
+                              className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                            >
+                              <option value="Gente">Gente</option>
+                              <option value="Equipos">Equipos</option>
+                              <option value="Materiales">Materiales</option>
+                              <option value="Ambiente">Ambiente</option>
+                            </select>
+                            <input
+                              type="text"
+                              value={task.hazardGEMA.hazard}
+                              onChange={(e) => handleTaskUpdate(taskIndex, 'hazardGEMA.hazard', e.target.value)}
+                              className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                              placeholder="Peligro"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={task.riskAssessment?.associatedRisk || ''}
+                              onChange={(e) => handleTaskUpdate(taskIndex, 'riskAssessment.associatedRisk', e.target.value)}
+                              className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                              placeholder="Riesgo asociado"
+                            />
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                checked={task.riskAssessment?.isCritical || false}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'riskAssessment.isCritical', e.target.checked)}
+                                className="rounded border-gray-300 text-safeia-yellow focus:ring-safeia-yellow"
+                              />
+                              <span className="text-sm text-gray-600">Crítico</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-2">
+                            {task.legalFramework?.map((legal, legalIndex) => (
+                              <div key={legalIndex} className="flex flex-col space-y-1">
+                                <input
+                                  type="text"
+                                  value={legal.name}
+                                  onChange={(e) => handleTaskUpdate(taskIndex, `legalFramework.${legalIndex}.name`, e.target.value)}
+                                  className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                  placeholder="Nombre de la ley"
+                                />
+                                <input
+                                  type="text"
+                                  value={legal.description}
+                                  onChange={(e) => handleTaskUpdate(taskIndex, `legalFramework.${legalIndex}.description`, e.target.value)}
+                                  className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                  placeholder="Artículos aplicables"
+                                />
                               </div>
                             ))}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          {task.evaluation && (
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div>
-                                <span className="text-gray-500">P:</span> {task.evaluation.probability.value}
-                              </div>
-                              <div>
-                                <span className="text-gray-500">E:</span> {task.evaluation.exposure.value}
-                              </div>
-                              <div>
-                                <span className="text-gray-500">C:</span> {task.evaluation.consequence.value}
-                              </div>
-                              <div>
-                                <span className="text-gray-500">S:</span> {task.evaluation.severity.value}
-                              </div>
+                          <div className="space-y-2">
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Probabilidad</label>
+                              <input
+                                type="number"
+                                value={task.evaluation?.probability.value || 0}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'evaluation.probability.value', parseInt(e.target.value))}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                min="0"
+                                max="10"
+                              />
                             </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {task.evaluation && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              task.evaluation.riskClassification === 'Bajo' ? 'bg-green-100 text-green-800' :
-                              task.evaluation.riskClassification === 'Medio' ? 'bg-yellow-100 text-yellow-800' :
-                              task.evaluation.riskClassification === 'Alto' ? 'bg-orange-100 text-orange-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {task.evaluation.riskMagnitude} - {task.evaluation.riskClassification}
-                            </span>
-                          )}
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Exposición</label>
+                              <input
+                                type="number"
+                                value={task.evaluation?.exposure.value || 0}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'evaluation.exposure.value', parseInt(e.target.value))}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                min="0"
+                                max="10"
+                              />
+                            </div>
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Consecuencia</label>
+                              <input
+                                type="number"
+                                value={task.evaluation?.consequence.value || 0}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'evaluation.consequence.value', parseInt(e.target.value))}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                min="0"
+                                max="10"
+                              />
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
-                          {task.controlPlan && (
-                            <div className="space-y-1">
-                              {task.controlPlan.controls.map((control, idx) => (
-                                <div key={idx} className="flex items-center space-x-2">
-                                  <span className={`px-2 py-0.5 rounded-full text-xs ${
-                                    control.type === 'Eliminación' ? 'bg-purple-100 text-purple-800' :
-                                    control.type === 'Sustitución' ? 'bg-blue-100 text-blue-800' :
-                                    control.type === 'Control de Ingeniería' ? 'bg-green-100 text-green-800' :
-                                    control.type === 'Control Administrativo' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                    {control.type}
-                                  </span>
-                                </div>
-                              ))}
+                          <div className="space-y-2">
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Magnitud</label>
+                              <input
+                                type="number"
+                                value={task.evaluation?.riskMagnitude || 0}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'evaluation.riskMagnitude', parseInt(e.target.value))}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                readOnly
+                              />
                             </div>
-                          )}
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Clasificación</label>
+                              <input
+                                type="text"
+                                value={task.evaluation?.riskClassification || ''}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'evaluation.riskClassification', e.target.value)}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                              />
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {task.controlPlan && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              task.controlPlan.residualRisk.classification === 'Bajo' ? 'bg-green-100 text-green-800' :
-                              task.controlPlan.residualRisk.classification === 'Medio' ? 'bg-yellow-100 text-yellow-800' :
-                              task.controlPlan.residualRisk.classification === 'Alto' ? 'bg-orange-100 text-orange-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {task.controlPlan.residualRisk.magnitude} - {task.controlPlan.residualRisk.classification}
-                            </span>
-                          )}
+                        <td className="px-6 py-4">
+                          <div className="space-y-4">
+                            {task.controlPlan?.controls.map((control, controlIndex) => (
+                              <div key={controlIndex} className="space-y-2 border-b pb-2">
+                                <div className="flex justify-between items-center">
+                                  <label className="text-xs text-gray-500">Control {controlIndex + 1}</label>
+                                  <button
+                                    onClick={() => handleRemoveControl(taskIndex, controlIndex)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
+                                <select
+                                  value={control.type}
+                                  onChange={(e) => handleControlUpdate(taskIndex, controlIndex, 'type', e.target.value)}
+                                  className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                >
+                                  <option value="">Seleccione tipo</option>
+                                  <option value="Eliminación">Eliminación</option>
+                                  <option value="Sustitución">Sustitución</option>
+                                  <option value="Ingeniería">Ingeniería</option>
+                                  <option value="Administrativo">Administrativo</option>
+                                  <option value="EPP">EPP</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  value={control.description}
+                                  onChange={(e) => handleControlUpdate(taskIndex, controlIndex, 'description', e.target.value)}
+                                  className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                  placeholder="Descripción del control"
+                                />
+                                <div className="flex space-x-2">
+                                  <input
+                                    type="number"
+                                    value={control.effectiveness.expected}
+                                    onChange={(e) => handleControlUpdate(taskIndex, controlIndex, 'effectiveness.expected', parseInt(e.target.value))}
+                                    className="w-20 text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                    min="0"
+                                    max="100"
+                                    placeholder="%"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={control.deadline.timeframe}
+                                    onChange={(e) => handleControlUpdate(taskIndex, controlIndex, 'deadline.timeframe', e.target.value)}
+                                    className="flex-1 text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                                    placeholder="Plazo"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => handleAddControl(taskIndex)}
+                              className="w-full px-2 py-1 text-sm bg-gray-100 text-safeia-black rounded-md hover:bg-safeia-yellow hover:text-white transition-colors"
+                            >
+                              + Agregar Control
+                            </button>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => setSelectedTasks(prev => prev.filter((_, i) => i !== index))}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Eliminar
-                          </button>
+                        <td className="px-6 py-4">
+                          <div className="space-y-2">
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Magnitud Residual</label>
+                              <input
+                                type="number"
+                                value={task.controlPlan?.residualRisk.magnitude || 0}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'controlPlan.residualRisk.magnitude', parseInt(e.target.value))}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                              />
+                            </div>
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-xs text-gray-500">Clasificación Residual</label>
+                              <input
+                                type="text"
+                                value={task.controlPlan?.residualRisk.classification || ''}
+                                onChange={(e) => handleTaskUpdate(taskIndex, 'controlPlan.residualRisk.classification', e.target.value)}
+                                className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                              />
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     ))}

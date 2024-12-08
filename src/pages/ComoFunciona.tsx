@@ -1,10 +1,16 @@
 import React from 'react';
-import { Brain, Layout, Zap, Clock, RefreshCw, FileText, AlertTriangle, ClipboardCheck, ClipboardList, FileSearch } from 'lucide-react';
+import { Brain, Layout, Zap, Clock, RefreshCw, FileText, AlertTriangle, ClipboardCheck, ClipboardList, FileSearch, Coins } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { Link } from 'react-router-dom';
 
 export default function ComoFunciona() {
   const features = [
+    {
+      title: 'Sistema de Tokens',
+      description: 'SAFEIA utiliza un sistema de tokens para gestionar el uso de las herramientas. Cada acción consume una cantidad específica de tokens, permitiéndote controlar y optimizar tu uso del servicio.',
+      icon: Coins,
+    },
     {
       title: 'Interfaz intuitiva',
       description: 'SAFEIA cuenta con una interfaz fácil de usar, diseñada para que cualquier usuario pueda utilizarla sin dificultades. No se requieren conocimientos técnicos avanzados.',
@@ -32,121 +38,139 @@ export default function ComoFunciona() {
     },
   ];
 
+  const tokenUsage = [
+    {
+      title: '¿Qué son los tokens?',
+      description: 'Los tokens son la unidad de medida que utilizamos para gestionar el uso de nuestras herramientas. Cada plan incluye una cantidad específica de tokens que se renuevan periódicamente.'
+    },
+    {
+      title: '¿Cómo se consumen los tokens?',
+      description: 'Cada vez que utilizas una herramienta o generas un documento, se consume una cantidad determinada de tokens. Por ejemplo, generar un ATS consume 100 tokens, mientras que una inspección puede consumir 50 tokens.'
+    },
+    {
+      title: '¿Cómo obtengo más tokens?',
+      description: 'Puedes obtener más tokens actualizando tu plan o esperando a la renovación mensual/trimestral de tu plan actual. Ofrecemos planes desde gratuitos hasta avanzados para adaptarnos a tus necesidades.'
+    }
+  ];
+
   const documents = [
     {
       title: 'Procedimientos de Trabajo Seguro',
       description: 'Documentos detallados que describen paso a paso cómo realizar tareas de manera segura.',
       icon: FileText,
+      tokenCost: 100
     },
     {
       title: 'Obligación de Informar Riesgos Laborales',
       description: 'Documentación formal para informar a los trabajadores sobre los riesgos laborales específicos.',
       icon: AlertTriangle,
+      tokenCost: 75
     },
     {
       title: 'Check List',
       description: 'Listas de verificación para asegurar el cumplimiento de normas y procedimientos de seguridad.',
       icon: ClipboardCheck,
+      tokenCost: 50
     },
     {
-      title: 'Análisis de Trabajo Seguro (AST o ART)',
-      description: 'Evaluaciones detalladas de los riesgos asociados a tareas específicas.',
+      title: 'Análisis de Trabajo Seguro',
+      description: 'Evaluación detallada de los riesgos asociados a una tarea específica.',
       icon: ClipboardList,
+      tokenCost: 100
     },
     {
       title: 'Investigación de Accidentes',
-      description: 'Plantillas y guías para la investigación y documentación de accidentes laborales.',
+      description: 'Herramienta para analizar y documentar incidentes y accidentes laborales.',
       icon: FileSearch,
+      tokenCost: 150
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-safeia-yellow/10">
+    <div className="bg-gray-50">
       <Navbar />
       
-      <main className="py-16">
-        {/* Header Section */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-black text-safeia-black sm:text-5xl md:text-6xl tracking-wide">
-              ¿Cómo Funciona?
-            </h1>
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-600 sm:mt-4">
-              SAFEIA es una plataforma impulsada por inteligencia artificial que facilita la creación de documentos 
-              de prevención de riesgos laborales de manera rápida y precisa.
-            </p>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+            ¿Cómo funciona SAFEIA?
+          </h2>
+          <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+            Descubre cómo SAFEIA puede ayudarte a gestionar la seguridad y salud laboral de manera eficiente
+          </p>
         </div>
 
-        {/* Features Grid */}
-        <div className="mt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-16">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
-              <div
-                key={feature.title}
-                className="relative bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-12 w-12 rounded-md bg-safeia-yellow text-safeia-black">
-                      <feature.icon className="h-6 w-6" />
+              <div key={feature.title} className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <feature.icon className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-medium text-gray-900">{feature.title}</h3>
                     </div>
                   </div>
-                  <h3 className="text-lg font-medium text-safeia-black">{feature.title}</h3>
+                  <div className="mt-4">
+                    <p className="text-base text-gray-500">{feature.description}</p>
+                  </div>
                 </div>
-                <p className="mt-4 text-base text-gray-600">
-                  {feature.description}
-                </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Summary Section */}
-        <div className="mt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-br from-safeia-yellow/10 to-safeia-yellow/20 rounded-2xl p-8 shadow-sm">
-            <h2 className="text-2xl font-bold text-safeia-black mb-4">En resumen</h2>
-            <p className="text-lg text-gray-700">
-              SAFEIA es una plataforma que combina la inteligencia artificial y la automatización para 
-              simplificar y agilizar la creación de documentos de prevención de riesgos laborales, 
-              brindando resultados precisos y confiables.
-            </p>
+        <div className="mt-16">
+          <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+            Sistema de Tokens
+          </h3>
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+            {tokenUsage.map((item) => (
+              <div key={item.title} className="bg-white overflow-hidden shadow rounded-lg p-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">{item.title}</h4>
+                <p className="text-base text-gray-500">{item.description}</p>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Documents Section */}
-        <div className="mt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-safeia-black">Documentos PRL</h2>
-            <p className="mt-4 text-xl text-gray-600">
-              A continuación te damos algunos ejemplos de documentos y plantillas con los que SAFEIA puede trabajar:
-            </p>
-          </div>
-          <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-16">
+          <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+            Documentos y Consumo de Tokens
+          </h3>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {documents.map((doc) => (
-              <div
-                key={doc.title}
-                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-100"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-10 w-10 rounded-md bg-safeia-yellow/20 text-safeia-yellow-dark">
-                      <doc.icon className="h-5 w-5" />
+              <div key={doc.title} className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <doc.icon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h4 className="text-lg font-medium text-gray-900">{doc.title}</h4>
                     </div>
                   </div>
-                  <h3 className="text-lg font-medium text-safeia-black">{doc.title}</h3>
+                  <p className="mt-4 text-sm text-gray-500">{doc.description}</p>
+                  <p className="mt-2 text-sm font-medium text-blue-600">
+                    Consumo: {doc.tokenCost} tokens
+                  </p>
                 </div>
-                <p className="mt-3 text-sm text-gray-600">
-                  {doc.description}
-                </p>
               </div>
             ))}
-            <div className="bg-gradient-to-br from-safeia-yellow/10 to-safeia-yellow/20 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 border border-safeia-yellow/30 flex items-center justify-center">
-              <p className="text-lg text-safeia-black font-medium">...y muchos más</p>
-            </div>
           </div>
         </div>
-      </main>
+
+        <div className="mt-16 text-center">
+          <Link
+            to="/planes"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Ver planes y precios
+          </Link>
+        </div>
+      </div>
 
       <Footer />
     </div>

@@ -8,9 +8,18 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
-      '/v1': {
-        target: 'http://localhost:5001',
-        changeOrigin: true
+      '/api/dify': {
+        target: 'https://api.dify.ai/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/dify/, ''),
+        headers: {
+          'Origin': 'https://api.dify.ai'
+        }
+      },
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

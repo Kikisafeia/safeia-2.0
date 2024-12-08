@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // No permitir eliminación desde el cliente
+    }
+
+    // Antecedentes collection
+    match /antecedentes/{antecedenteId} {
+      // Permitir lectura solo si el usuario está autenticado y es el dueño del antecedente
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      // Permitir crear antecedentes si el usuario está autenticado y es el dueño
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      
+      // Permitir actualizar solo si el usuario es el dueño
+      allow update: if isAuthenticated() && 
+                   resource.data.userId == request.auth.uid && 
+                   request.resource.data.userId == request.auth.uid;
+      
+      // No permitir eliminación de antecedentes
+      allow delete: if false;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

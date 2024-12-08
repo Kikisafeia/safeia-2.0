@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { Briefcase, Shield, Building2, FileCheck, BarChart2, Users, CheckSquare, Search, AlertTriangle, Info, FileText, Sun, ClipboardCheck, HardHat } from 'lucide-react';
 
@@ -9,36 +9,52 @@ const categorias = [
     id: 'gestion',
     titulo: 'Gestión de SST',
     descripcion: 'Herramientas para la gestión y administración de la seguridad',
-    color: 'bg-safeia-yellow/10',
+    icon: Briefcase,
+    color: 'bg-safeia-yellow',
     textColor: 'text-safeia-black',
     borderColor: 'border-safeia-yellow',
+    imageSrc: '/gestion.jpg',
+    imageAlt: 'Gestión de SST',
+    href: '/herramientas-sst/gestion',
     herramientas: ['sgsst-pymes', 'politicas', 'checklist', 'inspecciones']
   },
   {
     id: 'prevencion',
     titulo: 'Prevención de Riesgos',
     descripcion: 'Herramientas para identificar y prevenir riesgos laborales',
-    color: 'bg-safeia-yellow/5',
+    icon: Shield,
+    color: 'bg-safeia-yellow',
     textColor: 'text-safeia-black',
-    borderColor: 'border-safeia-yellow/50',
+    borderColor: 'border-safeia-yellow',
+    imageSrc: '/prevencion.jpg',
+    imageAlt: 'Prevención de Riesgos',
+    href: '/herramientas-sst/prevencion',
     herramientas: ['pts', 'ats', 'obligacion-informar', 'recomendaciones', 'matriz-riesgos']
   },
   {
     id: 'analisis',
     titulo: 'Análisis y Mejora',
     descripcion: 'Herramientas para analizar y mejorar la seguridad',
-    color: 'bg-safeia-yellow/10',
+    icon: BarChart2,
+    color: 'bg-safeia-yellow',
     textColor: 'text-safeia-black',
     borderColor: 'border-safeia-yellow',
+    imageSrc: '/analisis.jpg',
+    imageAlt: 'Análisis y Mejora',
+    href: '/herramientas-sst/analisis',
     herramientas: ['foda', 'investigacion']
   },
   {
     id: 'capacitacion',
     titulo: 'Capacitación y Comunicación',
     descripcion: 'Herramientas para formar y comunicar sobre seguridad',
-    color: 'bg-safeia-yellow/5',
+    icon: Users,
+    color: 'bg-safeia-yellow',
     textColor: 'text-safeia-black',
-    borderColor: 'border-safeia-yellow/50',
+    borderColor: 'border-safeia-yellow',
+    imageSrc: '/capacitacion.jpg',
+    imageAlt: 'Capacitación y Comunicación',
+    href: '/herramientas-sst/capacitacion',
     herramientas: ['charla', 'indice-uv']
   }
 ];
@@ -169,67 +185,51 @@ const herramientas = [
 const HerramientasSST = () => {
   const navigate = useNavigate();
 
-  const getHerramienta = (id: string) => {
-    return herramientas.find(h => h.id === id);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-safeia-yellow/10">
+    <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-safeia-black mb-4">
-              Herramientas de Seguridad y Salud en el Trabajo
-            </h1>
-            <p className="text-xl text-gray-600">
-              Soluciones inteligentes para gestionar la seguridad y salud laboral
-            </p>
-          </div>
-
-          <div className="space-y-12">
-            {categorias.map((categoria) => (
-              <div 
-                key={categoria.id} 
-                className={`p-6 rounded-lg border ${categoria.color} ${categoria.borderColor}`}
-              >
-                <h2 className={`text-2xl font-bold ${categoria.textColor} mb-2`}>
-                  {categoria.titulo}
-                </h2>
-                <p className="text-gray-600 mb-6">{categoria.descripcion}</p>
+        <h1 className="text-3xl font-bold mb-6 text-safeia-black">Herramientas de Seguridad y Salud en el Trabajo</h1>
+        
+        {categorias.map((categoria) => (
+          <div key={categoria.id} className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4 text-safeia-black flex items-center">
+              {React.createElement(categoria.icon)}
+              <span className="ml-2">{categoria.titulo}</span>
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {categoria.herramientas.map((herramientaId) => {
+                const herramienta = herramientas.find(h => h.id === herramientaId);
+                if (!herramienta) return null;
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {categoria.herramientas.map((herramientaId) => {
-                    const herramienta = getHerramienta(herramientaId);
-                    if (!herramienta) return null;
-                    
-                    const Icon = herramienta.icon;
-                    
-                    return (
-                      <div
-                        key={herramienta.id}
-                        className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer border border-gray-100 hover:border-safeia-yellow"
-                        onClick={() => navigate(herramienta.path)}
-                      >
-                        <div className="p-6">
-                          <div className={`${herramienta.color} w-12 h-12 rounded-lg flex items-center justify-center mb-4`}>
-                            <Icon className="w-6 h-6 text-safeia-black" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-safeia-black mb-2">
-                            {herramienta.title}
-                          </h3>
-                          <p className="text-gray-600 text-sm">
-                            {herramienta.description}
-                          </p>
-                        </div>
+                return (
+                  <Link
+                    key={herramienta.id}
+                    to={herramienta.path}
+                    className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-safeia-yellow"
+                  >
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <span className="p-2 bg-safeia-yellow rounded-lg inline-block">
+                          {React.createElement(herramienta.icon)}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-2 text-safeia-black">
+                          {herramienta.title}
+                        </h3>
+                        <p className="text-sm text-safeia-black">
+                          {herramienta.description}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );

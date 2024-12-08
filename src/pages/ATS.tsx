@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { PlusCircle, MinusCircle, FileText, Download, Upload } from 'lucide-react';
+import { PlusCircle, MinusCircle, FileText, Download, Upload, Wand2, Search, Loader2 } from 'lucide-react';
 import { generateATSAnalysis } from '../services/ats';
 import { AnalisisTrabajoSeguro } from '../types/ats';
 import DashboardNavbar from '../components/DashboardNavbar';
@@ -7,17 +7,24 @@ import RiskMapViewer from '../components/RiskMapViewer';
 import { analyzeWorkplaceImage } from '../services/riskMap';
 import { RiskMap as RiskMapType } from '../types/riskMap';
 import { useDropzone } from 'react-dropzone';
+import { OpenAIClient, AzureKeyCredential } from '@azure/openai';
 
 export default function ATS() {
   const [loading, setLoading] = useState(false);
+  const [loadingDescription, setLoadingDescription] = useState(false);
+  const [loadingPasos, setLoadingPasos] = useState(false);
   const [actividad, setActividad] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [area, setArea] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [pais, setPais] = useState('');
   const [pasos, setPasos] = useState(['']);
   const [analisis, setAnalisis] = useState<AnalisisTrabajoSeguro | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [riskMap, setRiskMap] = useState<RiskMapType | null>(null);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [legislacion, setLegislacion] = useState<string[]>([]);
+  const [loadingLegislacion, setLoadingLegislacion] = useState(false);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -79,6 +86,16 @@ export default function ATS() {
       return;
     }
 
+    if (!fecha) {
+      setError('Por favor, ingrese la fecha');
+      return;
+    }
+
+    if (!pais.trim()) {
+      setError('Por favor, ingrese el país');
+      return;
+    }
+
     if (pasos.some(paso => !paso.trim())) {
       setError('Por favor, complete todos los pasos de la actividad');
       return;
@@ -92,6 +109,8 @@ export default function ATS() {
         actividad,
         descripcion,
         area,
+        fecha,
+        pais,
         pasos: pasos.filter(paso => paso.trim())
       }, riskMap);
       setAnalisis(resultado);
@@ -103,12 +122,252 @@ export default function ATS() {
     }
   };
 
+  const generarDescripcion = async () => {
+    if (!actividad.trim()) {
+      setError('Por favor, ingrese primero el nombre de la actividad');
+      return;
+    }
+
+    setLoadingDescription(true);
+    setError(null);
+
+    try {
+      const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
+      const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
+      const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
+
+      const client = new OpenAIClient(
+        endpoint,
+        new AzureKeyCredential(apiKey)
+      );
+
+      const messages = [
+        {
+          role: "system",
+          content: "Eres un experto en seguridad y salud ocupacional. Tu tarea es generar descripciones detalladas y técnicas de actividades laborales, enfocándote en aspectos relevantes para el análisis de riesgos."
+        },
+        {
+          role: "user",
+          content: `Genera una descripción técnica y detallada para la siguiente actividad: "${actividad}".
+          La descripción debe:
+          1. Ser concisa pero completa
+          2. Mencionar el propósito principal
+          3. Incluir el contexto general de la actividad
+          4. Considerar aspectos relevantes para la seguridad
+          
+          Formato: texto plano, máximo 3 líneas.`
+        }
+      ];
+
+      const result = await client.getChatCompletions(deployment, messages, {
+        temperature: 0.7,
+        maxTokens: 200,
+      });
+
+      const content = result.choices[0].message?.content;
+      if (!content) {
+        throw new Error('No se recibió respuesta del servicio de IA');
+      }
+
+      setDescripcion(content.trim());
+    } catch (err) {
+      console.error('Error al generar descripción:', err);
+      setError('Error al generar la descripción. Por favor, intente nuevamente.');
+    } finally {
+      setLoadingDescription(false);
+    }
+  };
+
+  const generarPasos = async () => {
+    if (!actividad.trim() || !descripcion.trim() || !fecha || !pais.trim()) {
+      setError('Por favor, complete todos los campos requeridos');
+      return;
+    }
+
+    setLoadingPasos(true);
+    setError(null);
+
+    try {
+      const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
+      const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
+      const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
+
+      const client = new OpenAIClient(
+        endpoint,
+        new AzureKeyCredential(apiKey)
+      );
+
+      const messages = [
+        {
+          role: "system",
+          content: "Eres un experto en seguridad ocupacional. Genera pasos secuenciales y seguros para actividades laborales."
+        },
+        {
+          role: "user",
+          content: `Genera 5-7 pasos secuenciales para realizar esta actividad de manera segura:
+
+Actividad: ${actividad}
+Descripción: ${descripcion}
+${area ? `Área: ${area}` : ''}
+Fecha: ${fecha}
+País: ${pais}
+
+Responde SOLO con los pasos numerados, sin texto adicional. Ejemplo:
+1. Verificar equipo de protección personal requerido
+2. Inspeccionar área de trabajo y herramientas
+3. Señalizar y delimitar zona de trabajo
+4. Ejecutar la tarea principal
+5. Verificar resultado y limpiar área`
+        }
+      ];
+
+      const result = await client.getChatCompletions(deployment, messages, {
+        temperature: 0.7,
+        maxTokens: 500,
+      });
+
+      const content = result.choices[0].message?.content;
+      if (!content) {
+        throw new Error('No se recibió respuesta del servicio de IA');
+      }
+
+      console.log('Respuesta de IA:', content);
+
+      // Procesar la respuesta línea por línea
+      const pasosList = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.match(/^\d+\./)) // Solo líneas que empiecen con números
+        .map(line => line.replace(/^\d+\.\s*/, '').trim()) // Remover números y espacios
+        .filter(line => line.length > 0); // Remover líneas vacías
+
+      if (pasosList.length === 0) {
+        throw new Error('No se pudieron generar pasos válidos');
+      }
+
+      setPasos(pasosList);
+    } catch (err) {
+      console.error('Error al generar pasos:', err);
+      setError(err instanceof Error ? err.message : 'Error al generar los pasos. Por favor, intente nuevamente.');
+    } finally {
+      setLoadingPasos(false);
+    }
+  };
+
+  const buscarLegislacion = async () => {
+    if (!actividad.trim() || !pais.trim()) {
+      setError('Se requiere la actividad y el país para buscar la legislación aplicable');
+      return;
+    }
+
+    setLoadingLegislacion(true);
+    setError(null);
+
+    try {
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_PERPLEXITY_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [
+            {
+              role: 'system',
+              content: 'Eres un experto legal en seguridad y salud ocupacional con amplio conocimiento de la normativa en Latinoamérica. Responde siempre en español y sé preciso y conciso. Es CRÍTICO que solo proporciones legislación específica del país solicitado.'
+            },
+            {
+              role: 'user',
+              content: `Identifica SOLO las principales leyes y decretos de ${pais.toUpperCase()} (y únicamente de ${pais.toUpperCase()}) que aplican a la siguiente actividad, incluyendo los artículos específicos cuando sea posible.
+
+IMPORTANTE: SOLO debes proporcionar legislación vigente de ${pais.toUpperCase()}. NO incluyas legislación de otros países ni normas internacionales.
+
+Actividad: ${actividad}
+${area ? `Área: ${area}` : ''}
+
+Proporciona ÚNICAMENTE los cuerpos legales aplicables (leyes, decretos, etc.) con sus artículos relevantes. NO incluyas recomendaciones ni explicaciones adicionales.
+
+Por favor, proporciona la información en formato JSON con la siguiente estructura:
+{
+  "legalFramework": [
+    {
+      "name": "Nombre de la ley o decreto de ${pais.toUpperCase()} (ejemplo: si es Chile 'Ley 16.744', si es Colombia 'Ley 1562 de 2012')",
+      "description": "Artículos específicos que aplican (ejemplo: 'Art. 184: Obligación del empleador de proteger la vida y salud de los trabajadores')",
+      "url": "URL oficial del gobierno de ${pais.toUpperCase()} donde se puede consultar el texto legal completo"
+    }
+  ]
+}
+
+RECUERDA: Solo legislación de ${pais.toUpperCase()}, no de otros países.`
+            }
+          ],
+          temperature: 0.2,
+          top_p: 0.9,
+          frequency_penalty: 1,
+          presence_penalty: 0,
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error de Perplexity:', errorData);
+        throw new Error(`Error ${response.status}: ${errorData.error?.message || 'Error al conectar con el servicio de Perplexity'}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('No se recibió respuesta del servicio');
+      }
+
+      let result;
+      try {
+        // Intenta parsear directamente
+        result = JSON.parse(content.trim());
+      } catch (parseError) {
+        console.error('Error al parsear JSON inicial:', parseError);
+        
+        // Intenta limpiar el contenido de markdown y volver a parsear
+        const cleanContent = content
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+        
+        try {
+          result = JSON.parse(cleanContent);
+        } catch (secondParseError) {
+          console.error('Error al parsear JSON limpio:', secondParseError);
+          console.error('Contenido recibido:', content);
+          throw new Error('Error al procesar la respuesta del servicio');
+        }
+      }
+
+      if (!result?.legalFramework || !Array.isArray(result.legalFramework)) {
+        throw new Error('Formato de respuesta inválido');
+      }
+
+      setLegislacion(result.legalFramework.map(item => 
+        `${item.name} - ${item.description}${item.url ? ` (${item.url})` : ''}`
+      ));
+
+    } catch (err) {
+      console.error('Error al buscar legislación:', err);
+      setError(err instanceof Error ? err.message : 'Error al buscar la legislación aplicable');
+    } finally {
+      setLoadingLegislacion(false);
+    }
+  };
+
   const renderAnalisis = () => {
     if (!analisis) return null;
 
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-4">Análisis de Trabajo Seguro</h3>
+        <h3 className="text-lg font-semibold mb-4 text-safeia-black">Análisis de Trabajo Seguro</h3>
         
         {/* Información general */}
         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -118,6 +377,7 @@ export default function ATS() {
           </div>
           <div>
             <p><strong>Fecha:</strong> {analisis.fecha}</p>
+            <p><strong>País:</strong> {analisis.pais}</p>
             {analisis.responsable && (
               <p><strong>Responsable:</strong> {analisis.responsable}</p>
             )}
@@ -179,7 +439,7 @@ export default function ATS() {
         {/* Información adicional */}
         {analisis.equiposProteccion && analisis.equiposProteccion.length > 0 && (
           <div className="mt-6">
-            <h4 className="font-semibold mb-2">Equipos de Protección Personal Requeridos:</h4>
+            <h4 className="font-semibold mb-2 text-safeia-black">Equipos de Protección Personal Requeridos:</h4>
             <ul className="list-disc list-inside">
               {analisis.equiposProteccion.map((epp, index) => (
                 <li key={index}>{epp}</li>
@@ -190,7 +450,7 @@ export default function ATS() {
 
         {analisis.condicionesAmbientales && analisis.condicionesAmbientales.length > 0 && (
           <div className="mt-4">
-            <h4 className="font-semibold mb-2">Condiciones Ambientales a Considerar:</h4>
+            <h4 className="font-semibold mb-2 text-safeia-black">Condiciones Ambientales a Considerar:</h4>
             <ul className="list-disc list-inside">
               {analisis.condicionesAmbientales.map((condicion, index) => (
                 <li key={index}>{condicion}</li>
@@ -208,17 +468,17 @@ export default function ATS() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="bg-white shadow sm:rounded-lg mb-6">
           <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 text-safeia-black">
               Análisis de Trabajo Seguro (ATS)
             </h3>
 
             <div className="mt-6 border-t border-gray-200 pt-6">
-              <h4 className="text-md leading-6 font-medium text-gray-900 mb-4">
+              <h4 className="text-md leading-6 font-medium text-gray-900 mb-4 text-safeia-black">
                 Información de la Actividad
               </h4>
               <div className="space-y-6">
                 <div>
-                  <label htmlFor="actividad" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="actividad" className="block text-sm font-medium text-gray-700 text-safeia-black">
                     Nombre de la Actividad
                   </label>
                   <input
@@ -226,27 +486,64 @@ export default function ATS() {
                     id="actividad"
                     value={actividad}
                     onChange={(e) => setActividad(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                     placeholder="Ej: Trabajo en Altura"
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700">
-                    Descripción de la Actividad
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha
                   </label>
-                  <textarea
-                    id="descripcion"
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    rows={3}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="Describa la actividad a realizar..."
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    className="w-full p-2 border rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                    required
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    País
+                  </label>
+                  <input
+                    type="text"
+                    value={pais}
+                    onChange={(e) => setPais(e.target.value)}
+                    placeholder="Ingrese el país"
+                    className="w-full p-2 border rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="area" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 text-safeia-black">
+                    Descripción de la Actividad
+                  </label>
+                  <div className="mt-1 flex gap-2">
+                    <textarea
+                      id="descripcion"
+                      value={descripcion}
+                      onChange={(e) => setDescripcion(e.target.value)}
+                      rows={3}
+                      className="block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                      placeholder="Describa la actividad a realizar..."
+                    />
+                    <button
+                      onClick={generarDescripcion}
+                      disabled={loadingDescription || !actividad.trim()}
+                      className="px-3 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      title="Generar descripción con IA"
+                    >
+                      <Wand2 className={`w-5 h-5 ${loadingDescription ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="area" className="block text-sm font-medium text-gray-700 text-safeia-black">
                     Área de Trabajo
                   </label>
                   <input
@@ -259,8 +556,42 @@ export default function ATS() {
                   />
                 </div>
 
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={buscarLegislacion}
+                    disabled={loadingLegislacion || !actividad.trim() || !pais.trim()}
+                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors ${
+                      loadingLegislacion ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {loadingLegislacion ? (
+                      <>
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                        Buscando legislación...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="-ml-1 mr-2 h-4 w-4" />
+                        Buscar Legislación Aplicable
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {legislacion.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Legislación Aplicable</h3>
+                    <ul className="list-disc pl-5 space-y-2">
+                      {legislacion.map((ley, index) => (
+                        <li key={index} className="text-sm text-gray-700">{ley}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 text-safeia-black">
                     Imagen del Área de Trabajo
                   </label>
                   <div
@@ -292,7 +623,7 @@ export default function ATS() {
 
                 {riskMap && (
                   <div className="mt-4">
-                    <h5 className="text-sm font-medium text-gray-900 mb-2">
+                    <h5 className="text-sm font-medium text-gray-900 mb-2 text-safeia-black">
                       Mapa de Riesgos
                     </h5>
                     <div className="border rounded-lg overflow-hidden">
@@ -303,15 +634,29 @@ export default function ATS() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-sm font-medium text-gray-900">Pasos de la Actividad</h5>
-                    <button
-                      type="button"
-                      onClick={agregarPaso}
-                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-                    >
-                      <PlusCircle className="h-4 w-4 mr-1" />
-                      Agregar Paso
-                    </button>
+                    <h5 className="text-sm font-medium text-gray-900 text-safeia-black">Pasos de la Actividad</h5>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={generarPasos}
+                        disabled={loadingPasos || !actividad.trim() || !descripcion.trim() || !fecha || !pais.trim()}
+                        className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors ${
+                          loadingPasos ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        title="Generar pasos con IA"
+                      >
+                        <Wand2 className={`h-4 w-4 mr-1 ${loadingPasos ? 'animate-spin' : ''}`} />
+                        {loadingPasos ? 'Generando...' : 'Sugerir Pasos'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={agregarPaso}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors"
+                      >
+                        <PlusCircle className="h-4 w-4 mr-1" />
+                        Agregar Paso
+                      </button>
+                    </div>
                   </div>
 
                   {pasos.map((paso, index) => (
@@ -320,7 +665,7 @@ export default function ATS() {
                         type="text"
                         value={paso}
                         onChange={(e) => actualizarPaso(index, e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        className="block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
                         placeholder={`Paso ${index + 1}`}
                       />
                       {pasos.length > 1 && (
@@ -367,7 +712,7 @@ export default function ATS() {
                   type="button"
                   onClick={generarAnalisis}
                   disabled={loading}
-                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-safeia-yellow hover:bg-safeia-yellow-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-safeia-yellow ${
                     loading ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >

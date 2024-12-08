@@ -5,7 +5,13 @@ import AgentCard from '../components/AgentCard';
 import SafetyAgentChat from '../components/SafetyAgentChat';
 import { Agent } from '../types/agents';
 import { agentService } from '../services/agentService';
-import { Bot, AlertCircle, X } from 'lucide-react';
+import { Bot, AlertCircle, X, Coins } from 'lucide-react';
+import { TOKEN_COSTS } from '../hooks/useTokens';
+import { useTokens } from '../hooks/useTokens';
+import { Plan } from '../types/plans';
+import { db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function AgentesEspecializados() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -13,10 +19,44 @@ export default function AgentesEspecializados() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const { getTokenBalance } = useTokens();
+  const [availableTokens, setAvailableTokens] = useState<number>(0);
+  const { currentUser } = useAuth();
+  const [userPlan, setUserPlan] = useState<{
+    id: string;
+    lastTokenReset: string;
+    tokens: number;
+  } | null>(null);
 
   useEffect(() => {
     loadAgents();
-  }, []);
+    updateTokenBalance();
+    if (currentUser) {
+      loadUserPlan();
+    }
+  }, [currentUser]);
+
+  const loadUserPlan = async () => {
+    if (!currentUser) return;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setUserPlan({
+          id: userData.plan || 'gratuito',
+          lastTokenReset: userData.lastTokenReset || new Date().toISOString(),
+          tokens: userData.tokens || 0
+        });
+      }
+    } catch (err) {
+      console.error('Error loading user plan:', err);
+    }
+  };
+
+  const updateTokenBalance = async () => {
+    const balance = await getTokenBalance();
+    setAvailableTokens(balance);
+  };
 
   const loadAgents = async () => {
     try {
@@ -26,7 +66,6 @@ export default function AgentesEspecializados() {
       setError(null);
     } catch (err) {
       setError('Error al cargar los agentes. Por favor, intenta de nuevo más tarde.');
-      // Usar datos de ejemplo mientras no haya API
       setAgents([
         {
           id: 'safeia-bot-1',
@@ -83,6 +122,36 @@ export default function AgentesEspecializados() {
           </p>
         </div>
 
+        {/* Token Information */}
+        <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Coins className="w-6 h-6 text-safeia-yellow" />
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  Tokens Disponibles
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {availableTokens.toLocaleString()} tokens
+                </p>
+                {userPlan && (
+                  <p className="text-xs text-gray-400">
+                    Último reset: {new Date(userPlan.lastTokenReset).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="text-sm text-gray-500">
+              <p>Costo por consulta:</p>
+              <ul className="list-disc list-inside">
+                <li>Consulta simple: {TOKEN_COSTS.AGENT_CHAT.SHORT_QUERY} tokens</li>
+                <li>Consulta con análisis: {TOKEN_COSTS.AGENT_CHAT.MEDIUM_QUERY} tokens</li>
+                <li>Análisis de documentos: {TOKEN_COSTS.AGENT_CHAT.DOCUMENT_REVIEW} tokens</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {error && (
           <div className="mb-8 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 text-red-500" />
@@ -107,17 +176,31 @@ export default function AgentesEspecializados() {
           </div>
         )}
 
-        {/* Chat Modal */}
         {showChat && selectedAgent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl relative">
+            <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative">
               <button
                 onClick={() => setShowChat(false)}
                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
               </button>
-              <SafetyAgentChat />
+              <div className="p-6 border-b">
+                <div className="flex items-center space-x-3">
+                  <Bot className="w-8 h-8 text-safeia-yellow" />
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {selectedAgent.name}
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {selectedAgent.specialties.join(' • ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <SafetyAgentChat />
+              </div>
             </div>
           </div>
         )}

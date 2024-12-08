@@ -8,7 +8,7 @@ export default function Hero() {
   const navigate = useNavigate();
 
   const handleStartTrial = () => {
-    navigate('/dashboard');
+    navigate('/login');
   };
 
   return (

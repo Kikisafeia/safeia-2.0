@@ -153,110 +153,114 @@ ${inspeccion.recomendaciones.map(rec => `• ${rec}`).join('\n')}
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-safeia-gray-100">
       <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Generador de Formatos de Inspección</h1>
+        <h1 className="text-3xl font-bold text-safeia-black mb-6">Generador de Formatos de Inspección</h1>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Área a Inspeccionar
-              </label>
-              <input
-                type="text"
-                name="area"
-                value={formData.area}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-                placeholder="Ej: Almacén, Producción, Oficinas"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Inspección
-              </label>
-              <select
-                name="tipoInspeccion"
-                value={formData.tipoInspeccion}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-              >
-                {tiposInspeccion.map(tipo => (
-                  <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-                ))}
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                {tiposInspeccion.find(t => t.value === formData.tipoInspeccion)?.descripcion}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Industria
-              </label>
-              <input
-                type="text"
-                name="industria"
-                value={formData.industria}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-                placeholder="Ej: Manufactura, Construcción"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enfoque de la Inspección
-              </label>
-              <input
-                type="text"
-                name="enfoque"
-                value={formData.enfoque}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Ej: Seguridad eléctrica, EPP, Orden y limpieza"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="area" className="block text-sm font-medium text-safeia-black">
+              Área a Inspeccionar
+            </label>
+            <input
+              type="text"
+              id="area"
+              name="area"
+              value={formData.area}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              placeholder="Ej: Almacén, Producción, Oficinas"
+              required
+            />
           </div>
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div>
+            <label htmlFor="tipo" className="block text-sm font-medium text-safeia-black">
+              Tipo de Inspección
+            </label>
+            <select
+              id="tipo"
+              name="tipoInspeccion"
+              value={formData.tipoInspeccion}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              required
+            >
+              {tiposInspeccion.map(tipo => (
+                <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-safeia-black">
+              {tiposInspeccion.find(t => t.value === formData.tipoInspeccion)?.descripcion}
+            </p>
+          </div>
+          <div>
+            <label htmlFor="industria" className="block text-sm font-medium text-safeia-black">
+              Industria
+            </label>
+            <input
+              type="text"
+              id="industria"
+              name="industria"
+              value={formData.industria}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              placeholder="Ej: Manufactura, Construcción"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="enfoque" className="block text-sm font-medium text-safeia-black">
+              Enfoque de la Inspección
+            </label>
+            <input
+              type="text"
+              id="enfoque"
+              name="enfoque"
+              value={formData.enfoque}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              placeholder="Ej: Seguridad eléctrica, EPP, Orden y limpieza"
+            />
+          </div>
+          <div>
+            <label htmlFor="riesgosEspecificos" className="block text-sm font-medium text-safeia-black">
               Riesgos Específicos
             </label>
             <textarea
+              id="riesgosEspecificos"
               name="riesgosEspecificos"
               value={formData.riesgosEspecificos}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              rows={3}
+              rows={4}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
               placeholder="Lista los riesgos específicos que se deben evaluar"
             />
           </div>
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div>
+            <label htmlFor="normativaAplicable" className="block text-sm font-medium text-safeia-black">
               Normativa Aplicable
             </label>
             <textarea
+              id="normativaAplicable"
               name="normativaAplicable"
               value={formData.normativaAplicable}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              rows={3}
+              rows={4}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
               placeholder="Menciona las normas o regulaciones aplicables"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center justify-center"
+            className="w-full px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <>
-                <Loader2 className="animate-spin mr-2" />
-                Generando formato...
-              </>
+              <span className="flex items-center justify-center">
+                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                Generando...
+              </span>
             ) : (
               'Generar Formato de Inspección'
             )}
@@ -264,74 +268,73 @@ ${inspeccion.recomendaciones.map(rec => `• ${rec}`).join('\n')}
         </form>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-8">
+          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-md">
             {error}
           </div>
         )}
 
         {inspeccion && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{inspeccion.titulo}</h2>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setMostrarPlanAccion(!mostrarPlanAccion)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  {mostrarPlanAccion ? 'Ver Inspección' : 'Ver Plan de Acción'}
-                </button>
-                <button
-                  onClick={downloadInspeccion}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar Formato
-                </button>
+          <div className="mt-8 bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold mb-4 text-safeia-black">
+              Inspección de Seguridad - {inspeccion.area}
+            </h2>
+
+            <div className="prose max-w-none">
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Información General</h3>
+                <ul className="list-none space-y-2 text-safeia-black">
+                  <li><strong>Área:</strong> {inspeccion.area}</li>
+                  <li><strong>Tipo:</strong> {inspeccion.tipoInspeccion}</li>
+                  <li><strong>Fecha:</strong> {inspeccion.fecha}</li>
+                </ul>
+              </div>
+
+              {inspeccion.criteriosEvaluacion.map((categoria, index) => (
+                <ItemInspeccion
+                  key={index}
+                  categoria={categoria.categoria}
+                  items={categoria.items}
+                  onUpdateItem={handleUpdateItem}
+                  categoriaIndex={index}
+                />
+              ))}
+
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Conclusiones</h3>
+                <ul className="list-disc list-inside space-y-1 text-safeia-black">
+                  {inspeccion.conclusiones.map((conclusion, index) => (
+                    <li key={index}>{conclusion}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Recomendaciones</h3>
+                <ul className="list-disc list-inside space-y-1 text-safeia-black">
+                  {inspeccion.recomendaciones.map((recomendacion, index) => (
+                    <li key={index}>{recomendacion}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
-            {!mostrarPlanAccion ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Fecha</p>
-                    <p className="font-medium">{inspeccion.fecha}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Área</p>
-                    <p className="font-medium">{inspeccion.area}</p>
-                  </div>
-                </div>
+            <div className="mt-6 flex justify-end space-x-4">
+              <button
+                onClick={() => setMostrarPlanAccion(!mostrarPlanAccion)}
+                className="px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300"
+              >
+                {mostrarPlanAccion ? 'Ver Inspección' : 'Ver Plan de Acción'}
+              </button>
+              <button
+                onClick={downloadInspeccion}
+                className="px-4 py-2 bg-safeia-black text-white rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Descargar Formato
+              </button>
+            </div>
 
-                {inspeccion.criteriosEvaluacion.map((categoria, index) => (
-                  <ItemInspeccion
-                    key={index}
-                    categoria={categoria.categoria}
-                    items={categoria.items}
-                    onUpdateItem={handleUpdateItem}
-                    categoriaIndex={index}
-                  />
-                ))}
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Conclusiones</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {inspeccion.conclusiones.map((conclusion, index) => (
-                      <li key={index} className="text-gray-600">{conclusion}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Recomendaciones</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {inspeccion.recomendaciones.map((recomendacion, index) => (
-                      <li key={index} className="text-gray-600">{recomendacion}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ) : (
+            {mostrarPlanAccion && (
               <PlanAccion
                 itemsNoCumplen={getItemsNoCumplen()}
                 onUpdateItems={handleUpdatePlanAccion}

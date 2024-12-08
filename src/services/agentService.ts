@@ -1,22 +1,22 @@
 import { Agent, AgentRequest, AgentResponse } from '../types/agents';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = '/api';
 
 export const agentService = {
   async listAgents(): Promise<Agent[]> {
-    const response = await fetch(`${API_BASE_URL}/api/agents`);
+    const response = await fetch(`${API_BASE_URL}/agents`);
     if (!response.ok) throw new Error('Failed to fetch agents');
     return response.json();
   },
 
   async getAgent(agentId: string): Promise<Agent> {
-    const response = await fetch(`${API_BASE_URL}/api/agents/${agentId}`);
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}`);
     if (!response.ok) throw new Error('Failed to fetch agent');
     return response.json();
   },
 
   async sendPrompt(agentId: string, request: AgentRequest): Promise<AgentResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/agents/${agentId}/chat`, {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -29,7 +29,7 @@ export const agentService = {
   },
 
   async getAgentStatus(agentId: string): Promise<{ status: Agent['status'] }> {
-    const response = await fetch(`${API_BASE_URL}/api/agents/${agentId}/status`);
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/status`);
     if (!response.ok) throw new Error('Failed to fetch agent status');
     return response.json();
   },

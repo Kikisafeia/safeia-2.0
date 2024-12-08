@@ -66,7 +66,7 @@ export default function FODA() {
     <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Análisis FODA en Seguridad y Salud Ocupacional</h1>
+        <h1 className="text-3xl font-bold text-safeia-black mb-8">Análisis FODA en Seguridad y Salud Ocupacional</h1>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -140,7 +140,7 @@ export default function FODA() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center justify-center"
+            className="mt-6 w-full bg-safeia-yellow text-safeia-black py-2 px-4 rounded-md hover:bg-safeia-yellow-dark disabled:bg-blue-300 flex items-center justify-center"
           >
             {loading ? (
               <>

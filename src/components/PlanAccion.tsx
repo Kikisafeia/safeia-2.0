@@ -17,7 +17,7 @@ interface PlanAccionProps {
   onUpdateItems: (items: ItemInspeccion[]) => void;
 }
 
-export default function PlanAccion({ itemsNoCumplen, onUpdateItems }: PlanAccionProps) {
+const PlanAccion = ({ itemsNoCumplen, onUpdateItems }: PlanAccionProps) => {
   const [items, setItems] = useState(itemsNoCumplen);
 
   const handleInputChange = (index: number, field: string, value: string) => {
@@ -53,10 +53,10 @@ ${index + 1}. ${item.item}
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Plan de Acción</h2>
+        <h2 className="text-2xl font-bold text-safeia-black">Plan de Acción</h2>
         <button
           onClick={downloadPlanAccion}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          className="flex items-center px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark"
         >
           <Download className="w-4 h-4 mr-2" />
           Descargar Plan
@@ -66,51 +66,51 @@ ${index + 1}. ${item.item}
       <div className="space-y-6">
         {items.map((item, index) => (
           <div key={index} className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="font-medium text-lg text-red-600 mb-4">{item.item}</h3>
+            <h3 className="font-medium text-lg text-safeia-black mb-4">{item.item}</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-safeia-black mb-2">
                   Acción Correctiva
                 </label>
                 <textarea
                   value={item.accionCorrectiva || ''}
                   onChange={(e) => handleInputChange(index, 'accionCorrectiva', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border-safeia-yellow rounded-md focus:ring-safeia-yellow text-safeia-black"
                   rows={3}
                   placeholder="Describe la acción correctiva necesaria"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-safeia-black mb-2">
                   Responsable
                 </label>
                 <input
                   type="text"
                   value={item.responsable || ''}
                   onChange={(e) => handleInputChange(index, 'responsable', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border-safeia-yellow rounded-md focus:ring-safeia-yellow text-safeia-black"
                   placeholder="Nombre del responsable"
                 />
 
-                <label className="block text-sm font-medium text-gray-700 mt-4 mb-2">
+                <label className="block text-sm font-medium text-safeia-black mt-4 mb-2">
                   Fecha Límite
                 </label>
                 <input
                   type="date"
                   value={item.fechaLimite || ''}
                   onChange={(e) => handleInputChange(index, 'fechaLimite', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border-safeia-yellow rounded-md focus:ring-safeia-yellow text-safeia-black"
                 />
 
-                <label className="block text-sm font-medium text-gray-700 mt-4 mb-2">
+                <label className="block text-sm font-medium text-safeia-black mt-4 mb-2">
                   Prioridad
                 </label>
                 <select
                   value={item.prioridad || ''}
                   onChange={(e) => handleInputChange(index, 'prioridad', e.target.value as 'Alta' | 'Media' | 'Baja')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border-safeia-yellow rounded-md focus:ring-safeia-yellow text-safeia-black"
                 >
                   <option value="">Seleccionar prioridad</option>
                   <option value="Alta">Alta</option>
@@ -124,4 +124,6 @@ ${index + 1}. ${item.item}
       </div>
     </div>
   );
-}
+};
+
+export default PlanAccion;

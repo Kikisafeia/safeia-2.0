@@ -1,5 +1,6 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
 import Hero from './components/Hero'
 import Features from './components/Features'
 import Navbar from './components/Navbar'
@@ -27,58 +28,274 @@ import IndiceUV from './pages/herramientas-sst/indice-uv'
 import ComoFunciona from './pages/ComoFunciona'
 import AgentesEspecializados from './pages/AgentesEspecializados'
 import ProtectedRoute from './components/ProtectedRoute'
+import AuthComponent from './components/auth/AuthComponent'
+import PrivateRoute from './components/auth/PrivateRoute'
+import Profile from './components/Profile'
+import Layout from './components/layout/Layout'
+import Privacidad from './pages/Privacidad'
+import Terminos from './pages/Terminos'
+import Planes from './pages/Planes'
 
 function App() {
+  console.log('App: Rendering...');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return <div>Cargando...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+
   return (
     <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <div className="min-h-screen bg-white">
-              <Navbar />
-              <main>
-                <Hero />
-                <Features />
-              </main>
-              <Footer />
-            </div>
-          }
-        />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route 
-          path="/agentes-especializados" 
-          element={
-            <ProtectedRoute>
-              <AgentesEspecializados />
-            </ProtectedRoute>
-          } 
-        />
-        <Route path="/herramientas-sst" element={<HerramientasSST />} />
-        <Route path="/herramientas-sst/pts" element={<PTS />} />
-        <Route path="/herramientas-sst/recomendaciones" element={<Recomendaciones />} />
-        <Route path="/herramientas-sst/sgsst-pymes" element={<SGSSTPymes />} />
-        <Route path="/herramientas-sst/ats" element={<ATS />} />
-        <Route path="/herramientas-sst/foda" element={<FODA />} />
-        <Route path="/herramientas-sst/charla" element={<CharlaSeguridadGenerator />} />
-        <Route path="/herramientas-sst/checklist" element={<CheckList />} />
-        <Route path="/herramientas-sst/inspecciones" element={<InspeccionesGenerator />} />
-        <Route path="/herramientas-sst/investigacion" element={<InvestigacionAccidentes />} />
-        <Route path="/herramientas-sst/obligacion-informar" element={<ObligacionInformar />} />
-        <Route path="/herramientas-sst/politicas" element={<Politicas />} />
-        <Route path="/herramientas-sst/indice-uv" element={<IndiceUV />} />
-        <Route path="/herramientas-sst/matriz-riesgos" element={<RiskMatrix />} />
-        <Route path="/herramientas-sst/mapa-riesgos" element={<RiskMap />} />
-        <Route path="/herramientas-sst/planes-sst" element={<Tools type="planes-sst" />} />
-        <Route path="/herramientas-sst/asistente-pts" element={<Tools type="asistente-pts" />} />
-        <Route path="/como-funciona" element={<ComoFunciona />} />
-        <Route path="/audit" element={<Audit />} />
-        <Route path="/legal" element={<Legal />} />
-        <Route path="/tools" element={<Tools />} />
-        <Route path="/ats" element={<ATS />} />
-      </Routes>
+      <div className="min-h-screen bg-white">
+        <AuthProvider>
+          <Navbar />
+          <Routes>
+            <Route path="/login" element={<AuthComponent />} />
+            <Route path="/register" element={<AuthComponent />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/dashboard/antecedentes" 
+              element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/agentes-especializados" 
+              element={
+                <PrivateRoute>
+                  <AgentesEspecializados />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/tools" 
+              element={
+                <PrivateRoute>
+                  <Tools />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst" 
+              element={
+                <PrivateRoute>
+                  <HerramientasSST />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/pts" 
+              element={
+                <PrivateRoute>
+                  <PTS />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/recomendaciones" 
+              element={
+                <PrivateRoute>
+                  <Recomendaciones />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/sgsst-pymes" 
+              element={
+                <PrivateRoute>
+                  <SGSSTPymes />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/ats" 
+              element={
+                <PrivateRoute>
+                  <ATS />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/foda" 
+              element={
+                <PrivateRoute>
+                  <FODA />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/charla" 
+              element={
+                <PrivateRoute>
+                  <CharlaSeguridadGenerator />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/checklist" 
+              element={
+                <PrivateRoute>
+                  <CheckList />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/inspecciones" 
+              element={
+                <PrivateRoute>
+                  <InspeccionesGenerator />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/investigacion" 
+              element={
+                <PrivateRoute>
+                  <InvestigacionAccidentes />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/obligacion-informar" 
+              element={
+                <PrivateRoute>
+                  <ObligacionInformar />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/politicas" 
+              element={
+                <PrivateRoute>
+                  <Politicas />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/indice-uv" 
+              element={
+                <PrivateRoute>
+                  <IndiceUV />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/matriz-riesgos" 
+              element={
+                <PrivateRoute>
+                  <RiskMatrix />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/mapa-riesgos" 
+              element={
+                <PrivateRoute>
+                  <RiskMap />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/planes-sst" 
+              element={
+                <PrivateRoute>
+                  <Tools type="planes-sst" />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/herramientas-sst/asistente-pts" 
+              element={
+                <PrivateRoute>
+                  <Tools type="asistente-pts" />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/como-funciona" 
+              element={
+                <PrivateRoute>
+                  <ComoFunciona />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/audit" 
+              element={
+                <PrivateRoute>
+                  <Audit />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/legal" 
+              element={
+                <PrivateRoute>
+                  <Legal />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/ats" 
+              element={
+                <PrivateRoute>
+                  <ATS />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/profile" 
+              element={
+                <PrivateRoute>
+                  <Profile />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/planes" 
+              element={
+                <PrivateRoute>
+                  <Planes />
+                </PrivateRoute>
+              } 
+            />
+            <Route path="/privacidad" element={<Privacidad />} />
+            <Route path="/terminos" element={<Terminos />} />
+            <Route 
+              path="/" 
+              element={<Navigate to="/dashboard/antecedentes" replace />} 
+            />
+            <Route 
+              path="*" 
+              element={<Navigate to="/dashboard/antecedentes" replace />} 
+            />
+          </Routes>
+          <Footer />
+        </AuthProvider>
+      </div>
     </Router>
-  )
+  );
 }
 
 export default App

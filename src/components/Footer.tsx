@@ -1,10 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
     <footer className="bg-white">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-8">
             <img
               className="h-10"
@@ -21,41 +22,9 @@ export default function Footer() {
             </h3>
             <ul className="mt-4 space-y-4">
               <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
+                <Link to="/tools" className="text-base text-gray-500 hover:text-gray-900">
                   Herramientas SST
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-                  Documentos ISO
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-                  Análisis de Riesgos
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-              Compañía
-            </h3>
-            <ul className="mt-4 space-y-4">
-              <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-                  Sobre Nosotros
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-                  Blog
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
-                  Contacto
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -65,14 +34,14 @@ export default function Footer() {
             </h3>
             <ul className="mt-4 space-y-4">
               <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
+                <Link to="/privacidad" className="text-base text-gray-500 hover:text-gray-900">
                   Política de Privacidad
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-500 hover:text-gray-900">
+                <Link to="/terminos" className="text-base text-gray-500 hover:text-gray-900">
                   Términos de Servicio
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

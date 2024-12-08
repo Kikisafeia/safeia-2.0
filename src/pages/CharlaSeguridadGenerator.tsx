@@ -123,126 +123,141 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
     <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Generador de Charlas de Seguridad</h1>
+        <h1 className="text-3xl font-bold text-safeia-black mb-6">Generador de Charlas de Seguridad</h1>
+        <p className="text-safeia-black mb-8">
+          Genera charlas de seguridad personalizadas para tu equipo de trabajo.
+        </p>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tema de la Charla
-              </label>
-              <input
-                type="text"
-                name="tema"
-                value={formData.tema}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-                placeholder="Ej: Trabajo en Altura"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Duración (minutos)
-              </label>
-              <select
-                name="duracion"
-                value={formData.duracion}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-              >
-                <option value="5">5 minutos</option>
-                <option value="10">10 minutos</option>
-                <option value="15">15 minutos</option>
-                <option value="30">30 minutos</option>
-                <option value="60">1 hora</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estilo de la Charla
-              </label>
-              <select
-                name="estilo"
-                value={formData.estilo}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-              >
-                {estilosCharla.map(estilo => (
-                  <option key={estilo.value} value={estilo.value}>{estilo.label}</option>
-                ))}
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                {estilosCharla.find(e => e.value === formData.estilo)?.descripcion}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Audiencia
-              </label>
-              <input
-                type="text"
-                name="audiencia"
-                value={formData.audiencia}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-                placeholder="Ej: Operarios de construcción"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Industria
-              </label>
-              <input
-                type="text"
-                name="industria"
-                value={formData.industria}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-                placeholder="Ej: Construcción"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="tema" className="block text-sm font-medium text-safeia-black">
+              Tema de la Charla
+            </label>
+            <input
+              type="text"
+              id="tema"
+              name="tema"
+              value={formData.tema}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              required
+              placeholder="Ej: Trabajo en Altura"
+            />
           </div>
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+
+          <div>
+            <label htmlFor="duracion" className="block text-sm font-medium text-safeia-black">
+              Duración Estimada (minutos)
+            </label>
+            <select
+              id="duracion"
+              name="duracion"
+              value={formData.duracion}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              required
+            >
+              <option value="5">5 minutos</option>
+              <option value="10">10 minutos</option>
+              <option value="15">15 minutos</option>
+              <option value="30">30 minutos</option>
+              <option value="60">1 hora</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="estilo" className="block text-sm font-medium text-safeia-black">
+              Estilo de la Charla
+            </label>
+            <select
+              id="estilo"
+              name="estilo"
+              value={formData.estilo}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              required
+            >
+              {estilosCharla.map(estilo => (
+                <option key={estilo.value} value={estilo.value}>{estilo.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-gray-500">
+              {estilosCharla.find(e => e.value === formData.estilo)?.descripcion}
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="audiencia" className="block text-sm font-medium text-safeia-black">
+              Audiencia Objetivo
+            </label>
+            <input
+              type="text"
+              id="audiencia"
+              name="audiencia"
+              value={formData.audiencia}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              required
+              placeholder="Ej: Operarios de construcción"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="industria" className="block text-sm font-medium text-safeia-black">
+              Industria
+            </label>
+            <input
+              type="text"
+              id="industria"
+              name="industria"
+              value={formData.industria}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+              required
+              placeholder="Ej: Construcción"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="objetivosEspecificos" className="block text-sm font-medium text-safeia-black">
               Objetivos Específicos
             </label>
             <textarea
+              id="objetivosEspecificos"
               name="objetivosEspecificos"
               value={formData.objetivosEspecificos}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
               rows={3}
               placeholder="Describe los objetivos específicos de la charla"
             />
           </div>
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+
+          <div>
+            <label htmlFor="riesgosEspecificos" className="block text-sm font-medium text-safeia-black">
               Riesgos Específicos a Abordar
             </label>
             <textarea
+              id="riesgosEspecificos"
               name="riesgosEspecificos"
               value={formData.riesgosEspecificos}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
               rows={3}
               placeholder="Lista los riesgos específicos que quieres abordar"
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center justify-center"
+            className="w-full px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <>
-                <Loader2 className="animate-spin mr-2" />
-                Generando charla...
-              </>
+              <span className="flex items-center justify-center">
+                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                Generando...
+              </span>
             ) : (
               'Generar Charla de Seguridad'
             )}
@@ -250,41 +265,31 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
         </form>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-8">
+          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-md">
             {error}
           </div>
         )}
 
         {charla && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{charla.titulo}</h2>
-              <button
-                onClick={downloadCharla}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Descargar Charla
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Objetivos</h3>
-                <ul className="list-disc list-inside space-y-1">
+          <div className="mt-8 bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold mb-4 text-safeia-black">{charla.titulo}</h2>
+            <div className="prose max-w-none">
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Objetivos</h3>
+                <ul className="list-disc pl-5 text-safeia-black">
                   {charla.objetivos.map((objetivo, index) => (
-                    <li key={index} className="text-gray-600">{objetivo}</li>
+                    <li key={index}>{objetivo}</li>
                   ))}
                 </ul>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Introducción</h3>
-                <p className="text-gray-600">{charla.introduccion}</p>
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Contenido Principal</h3>
+                <div className="text-safeia-black whitespace-pre-line">{charla.introduccion}</div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Contenido</h3>
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Contenido</h3>
                 {charla.contenido.map((seccion, index) => (
                   <div key={index} className="mb-4 p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium text-gray-800 mb-2">{seccion.tema}</h4>
@@ -306,8 +311,8 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
                 ))}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Actividades</h3>
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Actividades</h3>
                 {charla.actividades.map((actividad, index) => (
                   <div key={index} className="mb-2">
                     <p className="font-medium text-gray-800">{actividad.descripcion}</p>
@@ -321,17 +326,17 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
                 ))}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Conclusiones</h3>
-                <ul className="list-disc list-inside space-y-1">
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Conclusiones</h3>
+                <ul className="list-disc pl-5 text-safeia-black">
                   {charla.conclusiones.map((conclusion, index) => (
-                    <li key={index} className="text-gray-600">{conclusion}</li>
+                    <li key={index}>{conclusion}</li>
                   ))}
                 </ul>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Evaluación</h3>
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Evaluación</h3>
                 <div className="space-y-4">
                   {charla.evaluacion.preguntas.map((pregunta, index) => (
                     <div key={index} className="p-4 bg-gray-50 rounded-lg">
@@ -343,13 +348,22 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Recursos Adicionales</h3>
-                <ul className="list-disc list-inside space-y-1">
+                <h3 className="text-xl font-semibold mb-2 text-safeia-black">Recursos Adicionales</h3>
+                <ul className="list-disc pl-5 text-safeia-black">
                   {charla.recursos.map((recurso, index) => (
-                    <li key={index} className="text-gray-600">{recurso}</li>
+                    <li key={index}>{recurso}</li>
                   ))}
                 </ul>
               </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={downloadCharla}
+                className="px-4 py-2 bg-safeia-black text-white rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300"
+              >
+                Descargar PDF
+              </button>
             </div>
           </div>
         )}

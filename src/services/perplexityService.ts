@@ -12,29 +12,30 @@ export async function getLegalFramework(
   const apiKey = import.meta.env.VITE_PERPLEXITY_API_KEY;
   const apiUrl = 'https://api.perplexity.ai/chat/completions';
 
-  const prompt = `Actúa como un experto legal en seguridad y salud ocupacional. Necesito que identifiques las principales leyes, decretos, resoluciones y normas técnicas que aplican al siguiente caso en ${country}:
+  const prompt = `Actúa como un experto legal en seguridad y salud ocupacional. Para el siguiente caso en ${country}, identifica SOLO las principales leyes y decretos que aplican, incluyendo los artículos específicos cuando sea posible:
 
 Tipo de Proceso: ${processType}
 Actividades: ${activities}
+
+Proporciona ÚNICAMENTE los cuerpos legales aplicables (leyes, decretos, etc.) con sus artículos relevantes. NO incluyas recomendaciones ni explicaciones adicionales.
 
 Por favor, proporciona la información en formato JSON con la siguiente estructura (sin usar comillas invertidas ni markdown):
 {
   "legalFramework": [
     {
-      "name": "Nombre de la ley/norma",
-      "description": "Breve descripción de qué aspectos específicos aplican",
-      "url": "URL oficial o fuente confiable donde se puede consultar (si está disponible)"
+      "name": "Nombre de la ley o decreto (ejemplo: 'Ley 16.744' o 'Decreto Supremo 40')",
+      "description": "Artículos específicos que aplican (ejemplo: 'Art. 184: Obligación del empleador de proteger la vida y salud de los trabajadores')",
+      "url": "URL oficial donde se puede consultar el texto legal completo (si está disponible)"
     }
   ]
 }
 
 Asegúrate de:
-1. Incluir solo normativas vigentes y aplicables específicamente a ${country}
-2. Priorizar las normativas más relevantes para el tipo de proceso y actividades descritas
-3. Proporcionar URLs oficiales o de fuentes confiables cuando estén disponibles
-4. Describir específicamente qué aspectos de cada normativa aplican al caso
-
-La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato markdown.`;
+1. Incluir SOLO leyes y decretos vigentes
+2. Especificar los artículos relevantes cuando sea posible
+3. Mantener las descripciones breves y enfocadas en los artículos aplicables
+4. NO incluir interpretaciones ni recomendaciones
+5. NO incluir normas técnicas ni guías, SOLO cuerpos legales`;
 
   try {
     const response = await fetch(apiUrl, {

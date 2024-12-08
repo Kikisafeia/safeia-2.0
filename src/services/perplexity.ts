@@ -1,4 +1,10 @@
-const PERPLEXITY_API_KEY = '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';
+const PERPLEXITY_API_KEY = import.meta.env.VITE_PERPLEXITY_API_KEY;
+
+if (!PERPLEXITY_API_KEY) {
+  console.error('VITE_PERPLEXITY_API_KEY no está definida en las variables de entorno');
+}
+
+export { PERPLEXITY_API_KEY };
 
 interface PerplexityResponse {
   id: string;
