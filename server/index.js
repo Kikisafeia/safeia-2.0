@@ -1,11 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+// Configuración de Dify
+const DIFY_API_URL = process.env.DIFY_API_URL || 'https://api.dify.ai/v1';
+const DIFY_API_KEY = process.env.DIFY_API_KEY; // Usar Service Secret Key aquí
 
 app.use(cors());
 app.use(express.json());
@@ -52,20 +57,80 @@ app.get('/api/agents/:id', (req, res) => {
   }
 });
 
-// Endpoint para el chat con un agente
-app.post('/api/agents/:id/chat', (req, res) => {
+// Endpoint para el chat con un agente usando Dify
+app.post('/api/agents/:id/chat', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { prompt } = req.body;
+    const { query, conversation_id, files } = req.body;
 
-    // Simular una respuesta del agente
-    const response = {
-      text: `Respuesta simulada del agente ${id} al prompt: ${prompt}`,
-      timestamp: new Date().toISOString(),
-      agentId: id
+    console.log('Received request body:', req.body);
+
+    // Preparar el mensaje para Dify
+    const messageData = {
+      inputs: {},
+      query,
+      response_mode: 'streaming',
+      conversation_id: conversation_id || undefined,
+      user: req.body.user || 'default-user'
     };
 
-    res.json(response);
+    if (files && files.length > 0) {
+      messageData.files = files;
+    }
+
+    console.log('Sending to Dify:', {
+      url: `${DIFY_API_URL}/chat-messages`,
+      headers: {
+        'Authorization': 'Bearer ' + DIFY_API_KEY.substring(0, 10) + '...',
+        'Content-Type': 'application/json'
+      },
+      messageData
+    });
+
+    // Configurar headers para Dify
+    const headers = {
+      'Authorization': `Bearer ${DIFY_API_KEY}`,
+      'Content-Type': 'application/json'
+    };
+
+    if (messageData.response_mode === 'streaming') {
+      headers['Accept'] = 'text/event-stream';
+    }
+
+    // Llamar a la API de Dify
+    const difyResponse = await fetch(`${DIFY_API_URL}/chat-messages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(messageData)
+    });
+
+    if (!difyResponse.ok) {
+      const errorText = await difyResponse.text();
+      console.error('Error from Dify:', {
+        status: difyResponse.status,
+        headers: Object.fromEntries(difyResponse.headers.entries()),
+        body: errorText
+      });
+      throw new Error(`Dify API error: ${difyResponse.status} - ${errorText}`);
+    }
+
+    // Si es streaming, configurar SSE
+    if (messageData.response_mode === 'streaming') {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      // Pipe la respuesta de Dify al cliente
+      difyResponse.body.pipe(res);
+
+      // Manejar desconexión del cliente
+      req.on('close', () => {
+        difyResponse.body.destroy();
+      });
+    } else {
+      // Para respuestas no streaming
+      const data = await difyResponse.json();
+      res.json(data);
+    }
   } catch (error) {
     console.error('Error in chat:', error);
     res.status(500).json({ error: 'Error interno del servidor' });

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import DashboardNavbar from '../components/DashboardNavbar';
 import { Loader2 } from 'lucide-react';
 import { generateInvestigation } from '../services/investigation';
 import ReactMarkdown from 'react-markdown';
@@ -54,7 +53,6 @@ export default function Investigation() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardNavbar />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-8">

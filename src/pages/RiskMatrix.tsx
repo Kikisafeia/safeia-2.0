@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Loader2, AlertTriangle, Lightbulb, ExternalLink } from 'lucide-react';
 import { assessRisk, getSuggestedTasks, Task, assessTaskRisks, TaskWithRisk, evaluateTaskRisk, RiskEvaluation, determineControls, ControlPlan } from '../services/riskMatrix';
 import { getLegalFramework } from '../services/perplexityService';
-import DashboardNavbar from '../components/DashboardNavbar';
 import { exportToExcel } from '../utils/excelExport';
 
 interface ActionPlan {
@@ -164,25 +163,39 @@ export default function RiskMatrix() {
     }
 
     const excelData = selectedTasks.map(task => ({
-      'Tarea': task.description,
-      'Categoría GEMA': task.hazardGEMA.category,
-      'Peligro': task.hazardGEMA.hazard,
-      'Sub-Peligro': task.hazardGEMA.subHazard || '',
-      'Detalle': task.hazardGEMA.detail || '',
-      'Riesgo Asociado': task.riskAssessment?.associatedRisk || '',
+      'Tarea': task.description || 'Sin especificar',
+      'Categoría GEMA': task.hazardGEMA?.category || 'Sin categoría',
+      'Peligro': task.hazardGEMA?.hazard || 'Sin especificar',
+      'Sub-Peligro': task.hazardGEMA?.subHazard || 'No aplica',
+      'Detalle': task.hazardGEMA?.detail || 'Sin detalles',
+      'Riesgo Asociado': task.riskAssessment?.associatedRisk || 'Sin especificar',
       'Criticidad': task.riskAssessment?.isCritical ? 'Crítico' : 'No Crítico',
-      'Marco Legal': task.legalFramework?.map(legal => `${legal.name} - ${legal.description}`).join('\n') || '',
-      'Probabilidad': task.evaluation?.probability.value || '',
-      'Exposición': task.evaluation?.exposure.value || '',
-      'Consecuencia': task.evaluation?.consequence.value || '',
-      'Severidad': task.evaluation?.severity.value || '',
-      'Magnitud del Riesgo': task.evaluation?.riskMagnitude || '',
-      'Clasificación del Riesgo': task.evaluation?.riskClassification || '',
+      'Justificación de Criticidad': task.riskAssessment?.criticalityJustification || 'No aplica',
+      'Daño Potencial': task.riskAssessment?.potentialDamage?.join(', ') || 'Sin especificar',
+      'Marco Legal': task.legalFramework?.map(legal => `${legal.name} - ${legal.description}`).join('\n') || 'Sin marco legal aplicable',
+      'Probabilidad': task.evaluation?.probability?.value || '0',
+      'Descripción Probabilidad': task.evaluation?.probability?.description || 'Sin evaluar',
+      'Exposición': task.evaluation?.exposure?.value || '0',
+      'Descripción Exposición': task.evaluation?.exposure?.description || 'Sin evaluar',
+      'Consecuencia': task.evaluation?.consequence?.value || '0',
+      'Descripción Consecuencia': task.evaluation?.consequence?.description || 'Sin evaluar',
+      'Severidad': task.evaluation?.severity?.value || '0',
+      'Descripción Severidad': task.evaluation?.severity?.description || 'Sin evaluar',
+      'Magnitud del Riesgo': task.evaluation?.riskMagnitude || '0',
+      'Clasificación del Riesgo': task.evaluation?.riskClassification || 'Sin clasificar',
+      'Justificación': task.evaluation?.justification || 'Sin justificación',
       'Controles': task.controlPlan?.controls.map(control => 
-        `${control.type} (Efectividad: ${control.effectiveness.expected}%)`
-      ).join('\n') || '',
-      'Riesgo Residual Magnitud': task.controlPlan?.residualRisk.magnitude || '',
-      'Riesgo Residual Clasificación': task.controlPlan?.residualRisk.classification || '',
+        `Tipo: ${control.type || 'No especificado'}\n` +
+        `Descripción: ${control.description || 'Sin descripción'}\n` +
+        `Efectividad esperada: ${control.effectiveness?.expected || '0'}%\n` +
+        `Responsables: ${control.responsibles?.join(', ') || 'No asignados'}\n` +
+        `Plazo: ${control.deadline?.timeframe || 'No definido'}\n` +
+        `Justificación plazo: ${control.deadline?.justification || 'Sin justificación'}`
+      ).join('\n\n') || 'Sin controles definidos',
+      'Riesgo Residual Magnitud': task.controlPlan?.residualRisk?.magnitude || '0',
+      'Riesgo Residual Clasificación': task.controlPlan?.residualRisk?.classification || 'Sin clasificar',
+      'Justificación Riesgo Residual': task.controlPlan?.residualRisk?.justification || 'Sin justificación',
+      'Recomendaciones': task.controlPlan?.recommendations?.join('\n') || 'Sin recomendaciones'
     }));
 
     exportToExcel(excelData, 'Evaluacion_de_Riesgos');
@@ -268,7 +281,6 @@ export default function RiskMatrix() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <DashboardNavbar />
       <div className="p-4 md:p-6">
         <div className="flex flex-col space-y-6">
           {/* Sección de Formulario Inicial */}
@@ -475,6 +487,7 @@ export default function RiskMatrix() {
                               onChange={(e) => handleTaskUpdate(taskIndex, 'hazardGEMA.category', e.target.value)}
                               className="w-full text-sm border-gray-300 rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
                             >
+                              <option value="">Seleccione categoría</option>
                               <option value="Gente">Gente</option>
                               <option value="Equipos">Equipos</option>
                               <option value="Materiales">Materiales</option>

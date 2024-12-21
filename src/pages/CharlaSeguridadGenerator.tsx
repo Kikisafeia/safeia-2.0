@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import DashboardNavbar from '../components/DashboardNavbar';
-import { generateSafetyTalk } from '../services/openai';
+import { generateSafetyTalk, generateSuggestions, generateSafetyImage } from '../services/openai';
 import { Loader2, Download } from 'lucide-react';
 import { saveAs } from 'file-saver';
+import { jsPDF } from 'jspdf';
 
 interface CharlaSeguridad {
   titulo: string;
@@ -41,6 +41,8 @@ export default function CharlaSeguridadGenerator() {
   const [loading, setLoading] = useState(false);
   const [charla, setCharla] = useState<CharlaSeguridad | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const estilosCharla = [
     { value: 'profesional', label: 'Profesional', descripcion: 'Enfoque formal y técnico, ideal para audiencias especializadas' },
@@ -56,14 +58,44 @@ export default function CharlaSeguridadGenerator() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSuggestions = async () => {
+    if (!formData.tema || !formData.industria) {
+      setError('Por favor, ingrese el tema y la industria para obtener sugerencias.');
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    setError(null);
+
+    try {
+      const suggestions = await generateSuggestions(formData.tema, formData.industria);
+      setFormData(prev => ({
+        ...prev,
+        objetivosEspecificos: suggestions.objetivos.join('\n'),
+        riesgosEspecificos: suggestions.riesgos.join('\n')
+      }));
+    } catch (err) {
+      setError('Error al generar sugerencias. Por favor, intente nuevamente.');
+      console.error('Error:', err);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setImageUrl(null);
 
     try {
-      const result = await generateSafetyTalk(formData);
-      setCharla(result);
+      const [charlaResult, imageUrlResult] = await Promise.all([
+        generateSafetyTalk(formData),
+        generateSafetyImage(formData.tema, formData.estilo)
+      ]);
+      
+      setCharla(charlaResult);
+      setImageUrl(imageUrlResult);
     } catch (err) {
       setError('Error al generar la charla de seguridad. Por favor, intente nuevamente.');
       console.error('Error:', err);
@@ -72,56 +104,173 @@ export default function CharlaSeguridadGenerator() {
     }
   };
 
-  const downloadCharla = () => {
+  const downloadCharla = async () => {
     if (!charla) return;
 
-    const content = `
-CHARLA DE SEGURIDAD: ${charla.titulo}
-Duración: ${charla.duracion}
-Estilo: ${estilosCharla.find(e => e.value === formData.estilo)?.label || formData.estilo}
+    const doc = new jsPDF();
+    let yPos = 20;
+    const lineHeight = 7;
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const maxWidth = pageWidth - 2 * margin;
 
-OBJETIVOS:
-${charla.objetivos.map(obj => `• ${obj}`).join('\n')}
+    // Función auxiliar para agregar texto con salto de línea automático
+    const addWrappedText = (text: string, y: number, fontSize = 12) => {
+      doc.setFontSize(fontSize);
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, margin, y);
+      return y + (lines.length * lineHeight);
+    };
 
-INTRODUCCIÓN:
-${charla.introduccion}
+    // Título
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText(charla.titulo.toUpperCase(), yPos, 16);
+    yPos += 5;
 
-CONTENIDO:
-${charla.contenido.map(cont => `
-${cont.tema}
-Puntos Clave:
-${cont.puntosClave.map(punto => `• ${punto}`).join('\n')}
-Ejemplos:
-${cont.ejemplos.map(ejemplo => `• ${ejemplo}`).join('\n')}
-`).join('\n')}
+    // Información básica
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    yPos = addWrappedText(`Duración: ${charla.duracion}`, yPos);
+    yPos = addWrappedText(`Estilo: ${formData.estilo}`, yPos);
+    yPos += 5;
 
-ACTIVIDADES:
-${charla.actividades.map(act => `
-• ${act.descripcion}
-  Duración: ${act.duracion}
-  ${act.materiales ? `Materiales: ${act.materiales.join(', ')}` : ''}
-`).join('\n')}
+    // Si hay una imagen, agregarla
+    if (imageUrl) {
+      try {
+        // Crear un elemento imagen temporal
+        const img = new Image();
+        img.crossOrigin = "Anonymous";  // Importante para imágenes de URLs externas
+        
+        // Esperar a que la imagen se cargue
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = imageUrl;
+        });
 
-CONCLUSIONES:
-${charla.conclusiones.map(conc => `• ${conc}`).join('\n')}
+        // Calcular dimensiones para mantener la proporción
+        const imgWidth = 170;  // Ancho deseado en el PDF
+        const imgHeight = (img.height * imgWidth) / img.width;
+        
+        // Centrar la imagen
+        const xPos = (pageWidth - imgWidth) / 2;
+        
+        // Agregar la imagen
+        doc.addImage(img, 'JPEG', xPos, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 10;
+      } catch (error) {
+        console.error('Error al agregar la imagen al PDF:', error);
+      }
+    }
 
-EVALUACIÓN:
-${charla.evaluacion.preguntas.map((pregunta, index) => `
-${index + 1}. ${pregunta}
-   R: ${charla.evaluacion.respuestasEsperadas[index]}
-`).join('\n')}
+    // Objetivos
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('OBJETIVOS:', yPos);
+    doc.setFont('helvetica', 'normal');
+    charla.objetivos.forEach(obj => {
+      yPos = addWrappedText(`• ${obj}`, yPos);
+    });
+    yPos += 5;
 
-RECURSOS ADICIONALES:
-${charla.recursos.map(rec => `• ${rec}`).join('\n')}
-`;
+    // Introducción
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('INTRODUCCIÓN:', yPos);
+    doc.setFont('helvetica', 'normal');
+    yPos = addWrappedText(charla.introduccion, yPos);
+    yPos += 5;
 
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    saveAs(blob, `charla_seguridad_${formData.tema.toLowerCase().replace(/\s+/g, '_')}.txt`);
+    // Contenido
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('CONTENIDO:', yPos);
+    doc.setFont('helvetica', 'normal');
+    charla.contenido.forEach(cont => {
+      // Verificar si necesitamos una nueva página
+      if (yPos > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      yPos = addWrappedText(cont.tema, yPos);
+      yPos += 3;
+      
+      doc.setFont('helvetica', 'bold');
+      yPos = addWrappedText('Puntos Clave:', yPos);
+      doc.setFont('helvetica', 'normal');
+      cont.puntosClave.forEach(punto => {
+        yPos = addWrappedText(`• ${punto}`, yPos);
+      });
+      
+      doc.setFont('helvetica', 'bold');
+      yPos = addWrappedText('Ejemplos:', yPos);
+      doc.setFont('helvetica', 'normal');
+      cont.ejemplos.forEach(ejemplo => {
+        yPos = addWrappedText(`• ${ejemplo}`, yPos);
+      });
+      yPos += 5;
+    });
+
+    // Actividades
+    if (yPos > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('ACTIVIDADES:', yPos);
+    doc.setFont('helvetica', 'normal');
+    charla.actividades.forEach(act => {
+      yPos = addWrappedText(`• ${act.descripcion}`, yPos);
+      yPos = addWrappedText(`  Duración: ${act.duracion}`, yPos);
+      if (act.materiales) {
+        yPos = addWrappedText(`  Materiales: ${act.materiales.join(', ')}`, yPos);
+      }
+      yPos += 3;
+    });
+
+    // Conclusiones
+    if (yPos > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('CONCLUSIONES:', yPos);
+    doc.setFont('helvetica', 'normal');
+    charla.conclusiones.forEach(conc => {
+      yPos = addWrappedText(`• ${conc}`, yPos);
+    });
+
+    // Evaluación
+    if (yPos > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('EVALUACIÓN:', yPos);
+    doc.setFont('helvetica', 'normal');
+    charla.evaluacion.preguntas.forEach((pregunta, index) => {
+      yPos = addWrappedText(`${index + 1}. ${pregunta}`, yPos);
+      yPos = addWrappedText(`   R: ${charla.evaluacion.respuestasEsperadas[index]}`, yPos);
+      yPos += 3;
+    });
+
+    // Recursos
+    if (yPos > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    yPos = addWrappedText('RECURSOS:', yPos);
+    doc.setFont('helvetica', 'normal');
+    charla.recursos.forEach(recurso => {
+      yPos = addWrappedText(`• ${recurso}`, yPos);
+    });
+
+    // Guardar el PDF
+    doc.save(`Charla_de_Seguridad_${charla.titulo.replace(/\s+/g, '_')}.pdf`);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-safeia-black mb-6">Generador de Charlas de Seguridad</h1>
         <p className="text-safeia-black mb-8">
@@ -218,34 +367,56 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
             />
           </div>
 
-          <div>
-            <label htmlFor="objetivosEspecificos" className="block text-sm font-medium text-safeia-black">
-              Objetivos Específicos
-            </label>
-            <textarea
-              id="objetivosEspecificos"
-              name="objetivosEspecificos"
-              value={formData.objetivosEspecificos}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
-              rows={3}
-              placeholder="Describe los objetivos específicos de la charla"
-            />
-          </div>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="objetivosEspecificos" className="block text-sm font-medium text-gray-700">
+                Objetivos Específicos
+              </label>
+              <div className="mt-1 relative">
+                <textarea
+                  id="objetivosEspecificos"
+                  name="objetivosEspecificos"
+                  rows={3}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  value={formData.objetivosEspecificos}
+                  onChange={handleInputChange}
+                  placeholder="Ingrese los objetivos específicos de la charla"
+                />
+              </div>
+            </div>
 
-          <div>
-            <label htmlFor="riesgosEspecificos" className="block text-sm font-medium text-safeia-black">
-              Riesgos Específicos a Abordar
-            </label>
-            <textarea
-              id="riesgosEspecificos"
-              name="riesgosEspecificos"
-              value={formData.riesgosEspecificos}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
-              rows={3}
-              placeholder="Lista los riesgos específicos que quieres abordar"
-            />
+            <div>
+              <label htmlFor="riesgosEspecificos" className="block text-sm font-medium text-gray-700">
+                Riesgos Específicos a Abordar
+              </label>
+              <div className="mt-1 relative">
+                <textarea
+                  id="riesgosEspecificos"
+                  name="riesgosEspecificos"
+                  rows={3}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  value={formData.riesgosEspecificos}
+                  onChange={handleInputChange}
+                  placeholder="Ingrese los riesgos específicos a abordar"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSuggestions}
+              disabled={loadingSuggestions || !formData.tema || !formData.industria}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+            >
+              {loadingSuggestions ? (
+                <>
+                  <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Generando sugerencias...
+                </>
+              ) : (
+                'Generar sugerencias con IA'
+              )}
+            </button>
           </div>
 
           <button
@@ -356,6 +527,19 @@ ${charla.recursos.map(rec => `• ${rec}`).join('\n')}
                 </ul>
               </div>
             </div>
+
+            {imageUrl && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium text-gray-900">Imagen representativa</h3>
+                <div className="mt-2">
+                  <img
+                    src={imageUrl}
+                    alt="Imagen representativa de la charla de seguridad"
+                    className="max-w-full h-auto rounded-lg shadow-lg"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 flex justify-end">
               <button

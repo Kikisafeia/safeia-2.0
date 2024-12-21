@@ -1,26 +1,23 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged,
   User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail
+  signOut,
+  onAuthStateChanged
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { initializeUserPlan } from '../utils/initUserPlan';
+import { CompanyProfile } from '../types/company';
+import { getCompanyProfile } from '../services/company';
 
 interface AuthContextType {
   currentUser: User | null;
-  loading: boolean;
-  error: string | null;
-  signInWithGoogle: () => Promise<void>;
+  companyProfile: CompanyProfile | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
+  loading: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,69 +32,24 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  async function signup(email: string, password: string) {
-    try {
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      if (result.user) {
-        await initializeUserPlan(result.user.uid);
-      }
-    } catch (error) {
-      console.error('Error en el registro:', error);
-      throw error;
-    }
-  }
-
-  async function login(email: string, password: string) {
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      if (result.user) {
-        await initializeUserPlan(result.user.uid);
-      }
-    } catch (error) {
-      console.error('Error en el inicio de sesión:', error);
-      throw error;
-    }
-  }
-
-  async function resetPassword(email: string) {
-    try {
-      await sendPasswordResetEmail(auth, email);
-    } catch (error) {
-      console.error('Error al enviar el correo de restablecimiento:', error);
-      throw error;
-    }
-  }
-
-  async function signInWithGoogle() {
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      
-      if (result.user) {
-        await initializeUserPlan(result.user.uid);
-      }
-    } catch (error) {
-      console.error('Error en el inicio de sesión:', error);
-      throw error;
-    }
-  }
-
-  function logout() {
-    return signOut(auth);
-  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         try {
-          await initializeUserPlan(user.uid);
+          // Intentar cargar el perfil de la empresa
+          const profile = await getCompanyProfile(user.uid);
+          setCompanyProfile(profile);
         } catch (error) {
-          console.error('Error al inicializar el plan:', error);
+          console.log('No se encontró perfil de empresa');
+          setCompanyProfile(null);
         }
+      } else {
+        setCompanyProfile(null);
       }
       setLoading(false);
     });
@@ -105,15 +57,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  const signup = async (email: string, password: string) => {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setError(null);
+    } catch (error) {
+      setError('Error al crear la cuenta');
+      throw error;
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setError(null);
+    } catch (error) {
+      setError('Error al iniciar sesión');
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setError(null);
+    } catch (error) {
+      setError('Error al cerrar sesión');
+      throw error;
+    }
+  };
+
   const value = {
     currentUser,
-    loading,
-    error,
-    signInWithGoogle,
+    companyProfile,
     login,
     signup,
-    resetPassword,
-    logout
+    logout,
+    loading,
+    error
   };
 
   return (

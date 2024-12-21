@@ -54,6 +54,8 @@ export interface AnalisisTrabajoSeguro {
   fecha: string;
   actividad: string;
   descripcion: string;
+  imagenInicial?: string; // URL de la imagen del trabajo
+  descripcionInicial: string; // Descripción inicial del trabajo
   area: string;
   responsable: string;
   pasos: PasoAnalisis[];

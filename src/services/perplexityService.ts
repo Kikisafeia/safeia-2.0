@@ -83,24 +83,18 @@ Asegúrate de:
     const content = data.choices[0].message.content;
     
     try {
-      // Intenta parsear directamente
-      result = JSON.parse(content.trim());
-    } catch (parseError) {
-      console.error('Error al parsear JSON inicial:', parseError);
-      
-      // Intenta limpiar el contenido de markdown y volver a parsear
+      // Primero limpiamos el contenido de markdown
       const cleanContent = content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
-      try {
-        result = JSON.parse(cleanContent);
-      } catch (secondParseError) {
-        console.error('Error al parsear JSON limpio:', secondParseError);
-        console.error('Contenido recibido:', content);
-        throw new Error('No se pudo procesar la respuesta del servicio');
-      }
+      // Luego intentamos parsear
+      result = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('Error al parsear JSON:', parseError);
+      console.log('Contenido recibido:', content);
+      throw new Error('No se pudo procesar la respuesta del servicio');
     }
 
     if (!Array.isArray(result?.legalFramework)) {

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DashboardNavbar from '../components/DashboardNavbar';
 import { generateInspection } from '../services/openai';
 import { Loader2, Download } from 'lucide-react';
 import { saveAs } from 'file-saver';
@@ -154,7 +153,6 @@ ${inspeccion.recomendaciones.map(rec => `• ${rec}`).join('\n')}
 
   return (
     <div className="min-h-screen bg-safeia-gray-100">
-      <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-safeia-black mb-6">Generador de Formatos de Inspección</h1>
 

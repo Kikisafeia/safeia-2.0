@@ -1,69 +1,72 @@
 export interface Plan {
   id: string;
   nombre: string;
-  tokens: number;
   precio: number;
-  duracion: number; // en meses
+  duracion: {
+    valor: number;
+    unidad: 'semana' | 'mes' | 'meses';
+  };
+  periodoGratis: number; // días de prueba
   caracteristicas: string[];
+  descripcion: string;
 }
 
 export const PLANES: Plan[] = [
   {
-    id: 'gratuito',
-    nombre: 'Plan Gratuito',
-    tokens: 10000,
-    precio: 0,
-    duracion: 1,
+    id: 'pro-3-meses',
+    nombre: 'Plan PRO 3 Meses',
+    precio: 24.99,
+    duracion: {
+      valor: 3,
+      unidad: 'meses'
+    },
+    periodoGratis: 2,
+    descripcion: 'Acceso a todas las características de la web y chats. Ofrecemos 2 días de prueba, no se te cobrará nada hasta el cuarto día en caso que no canceles la suscripción.',
     caracteristicas: [
-      'Acceso a herramientas básicas',
-      '10,000 tokens mensuales',
-      'Soporte por correo electrónico',
-      'Documentos en formato PDF'
-    ]
-  },
-  {
-    id: 'basico',
-    nombre: 'Plan Básico',
-    tokens: 20000,
-    precio: 1.99,
-    duracion: 1,
-    caracteristicas: [
-      'Todas las herramientas básicas',
-      '20,000 tokens mensuales',
-      'Soporte prioritario',
-      'Documentos en múltiples formatos',
-      'Plantillas personalizables'
-    ]
-  },
-  {
-    id: 'estandar',
-    nombre: 'Plan Estándar',
-    tokens: 50000,
-    precio: 9.99,
-    duracion: 1,
-    caracteristicas: [
-      'Todas las herramientas avanzadas',
-      '50,000 tokens mensuales',
+      'Acceso completo a todas las herramientas',
+      'Chats ilimitados con IA',
       'Soporte prioritario 24/7',
       'Documentos personalizables',
-      'Análisis detallados',
+      'Sin límite de tokens',
       'Exportación en todos los formatos'
     ]
   },
   {
-    id: 'avanzado',
-    nombre: 'Plan Avanzado',
-    tokens: 100000,
-    precio: 24.99,
-    duracion: 3,
+    id: 'pro-1-mes',
+    nombre: 'Plan PRO 1 Mes',
+    precio: 9.99,
+    duracion: {
+      valor: 1,
+      unidad: 'mes'
+    },
+    periodoGratis: 2,
+    descripcion: 'Acceso a todas las características de la web y chats. Ofrecemos 2 días de prueba, no se te cobrará nada hasta el cuarto día en caso que no canceles la suscripción.',
     caracteristicas: [
       'Acceso completo a todas las herramientas',
-      '100,000 tokens trimestrales',
-      'Soporte prioritario dedicado',
-      'Personalización completa',
-      'Análisis avanzados',
-      'API de integración',
-      'Dashboard personalizado'
+      'Chats ilimitados con IA',
+      'Soporte prioritario 24/7',
+      'Documentos personalizables',
+      'Sin límite de tokens',
+      'Exportación en todos los formatos'
+    ]
+  },
+  {
+    id: 'pro-1-semana',
+    nombre: 'Plan PRO 1 Semana',
+    precio: 1.99,
+    duracion: {
+      valor: 1,
+      unidad: 'semana'
+    },
+    periodoGratis: 2,
+    descripcion: 'Acceso a todas las características de la web y chats. Ofrecemos 2 días de prueba, no se te cobrará nada hasta el cuarto día en caso que no canceles la suscripción.',
+    caracteristicas: [
+      'Acceso completo a todas las herramientas',
+      'Chats ilimitados con IA',
+      'Soporte prioritario 24/7',
+      'Documentos personalizables',
+      'Sin límite de tokens',
+      'Exportación en todos los formatos'
     ]
   }
 ];

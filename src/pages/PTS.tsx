@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DashboardNavbar from '../components/DashboardNavbar';
 import { generatePTS, generatePTSActivitySuggestions } from '../services/azureOpenAI';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -133,7 +132,6 @@ export default function PTS() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-safeia-black mb-8">
           Procedimiento de Trabajo Seguro (PTS)

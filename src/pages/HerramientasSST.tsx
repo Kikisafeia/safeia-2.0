@@ -1,7 +1,21 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import DashboardNavbar from '../components/DashboardNavbar';
-import { Briefcase, Shield, Building2, FileCheck, BarChart2, Users, CheckSquare, Search, AlertTriangle, Info, FileText, Sun, ClipboardCheck, HardHat } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { 
+  Briefcase, 
+  Shield, 
+  Building2, 
+  FileCheck, 
+  BarChart2, 
+  Users, 
+  Search, 
+  AlertTriangle,
+  Clipboard,
+  Sun,
+  MessageSquare,
+  FileText,
+  Book,
+  CheckSquare
+} from 'lucide-react';
 
 // Categorías de herramientas
 const categorias = [
@@ -16,7 +30,12 @@ const categorias = [
     imageSrc: '/gestion.jpg',
     imageAlt: 'Gestión de SST',
     href: '/herramientas-sst/gestion',
-    herramientas: ['sgsst-pymes', 'politicas', 'checklist', 'inspecciones']
+    herramientas: [
+      { id: 'sgsst-pymes', nombre: 'SGSST para PyMES', ruta: '/herramientas-sst/sgsst-pymes' },
+      { id: 'audit', nombre: 'Auditorías', ruta: '/herramientas-sst/audit' },
+      { id: 'politicas', nombre: 'Políticas de SST', ruta: '/herramientas-sst/politicas' },
+      { id: 'legal', nombre: 'Requisitos Legales', ruta: '/herramientas-sst/legal' }
+    ]
   },
   {
     id: 'prevencion',
@@ -29,207 +48,112 @@ const categorias = [
     imageSrc: '/prevencion.jpg',
     imageAlt: 'Prevención de Riesgos',
     href: '/herramientas-sst/prevencion',
-    herramientas: ['pts', 'ats', 'obligacion-informar', 'recomendaciones', 'matriz-riesgos']
+    herramientas: [
+      { id: 'matriz-riesgos', nombre: 'Matriz de Riesgos', ruta: '/herramientas-sst/risk-matrix' },
+      { id: 'mapa-riesgos', nombre: 'Mapa de Riesgos', ruta: '/herramientas-sst/risk-map' },
+      { id: 'pts', nombre: 'Procedimientos de Trabajo Seguro', ruta: '/herramientas-sst/pts' },
+      { id: 'ats', nombre: 'Análisis de Trabajo Seguro', ruta: '/herramientas-sst/ats' }
+    ]
   },
   {
-    id: 'analisis',
-    titulo: 'Análisis y Mejora',
-    descripcion: 'Herramientas para analizar y mejorar la seguridad',
-    icon: BarChart2,
+    id: 'inspecciones',
+    titulo: 'Inspecciones y Controles',
+    descripcion: 'Herramientas para realizar inspecciones y controles de seguridad',
+    icon: CheckSquare,
     color: 'bg-safeia-yellow',
     textColor: 'text-safeia-black',
     borderColor: 'border-safeia-yellow',
-    imageSrc: '/analisis.jpg',
-    imageAlt: 'Análisis y Mejora',
-    href: '/herramientas-sst/analisis',
-    herramientas: ['foda', 'investigacion']
+    imageSrc: '/inspecciones.jpg',
+    imageAlt: 'Inspecciones',
+    href: '/herramientas-sst/inspecciones',
+    herramientas: [
+      { id: 'checklist', nombre: 'Listas de Verificación', ruta: '/herramientas-sst/checklist' },
+      { id: 'inspecciones', nombre: 'Generador de Inspecciones', ruta: '/herramientas-sst/inspecciones-generator' },
+      { id: 'investigation', nombre: 'Investigación de Accidentes', ruta: '/herramientas-sst/investigation' }
+    ]
   },
   {
     id: 'capacitacion',
     titulo: 'Capacitación y Comunicación',
-    descripcion: 'Herramientas para formar y comunicar sobre seguridad',
-    icon: Users,
+    descripcion: 'Herramientas para la capacitación y comunicación en SST',
+    icon: MessageSquare,
     color: 'bg-safeia-yellow',
     textColor: 'text-safeia-black',
     borderColor: 'border-safeia-yellow',
     imageSrc: '/capacitacion.jpg',
-    imageAlt: 'Capacitación y Comunicación',
+    imageAlt: 'Capacitación',
     href: '/herramientas-sst/capacitacion',
-    herramientas: ['charla', 'indice-uv']
+    herramientas: [
+      { id: 'charlas', nombre: 'Generador de Charlas', ruta: '/herramientas-sst/charlas-generator' },
+      { id: 'obl-informar', nombre: 'Obligación de Informar', ruta: '/herramientas-sst/obligacion-informar' },
+      { id: 'agentes', nombre: 'Agentes Especializados', ruta: '/herramientas-sst/agentes-especializados' }
+    ]
+  },
+  {
+    id: 'monitoreo',
+    titulo: 'Monitoreo y Análisis',
+    descripcion: 'Herramientas para el monitoreo y análisis de condiciones',
+    icon: BarChart2,
+    color: 'bg-safeia-yellow',
+    textColor: 'text-safeia-black',
+    borderColor: 'border-safeia-yellow',
+    imageSrc: '/monitoreo.jpg',
+    imageAlt: 'Monitoreo',
+    href: '/herramientas-sst/monitoreo',
+    herramientas: [
+      { id: 'indice-uv', nombre: 'Índice UV', ruta: '/herramientas-sst/indice-uv' },
+      { id: 'foda', nombre: 'Análisis FODA', ruta: '/herramientas-sst/foda' },
+      { id: 'recomendaciones', nombre: 'Recomendaciones', ruta: '/herramientas-sst/recomendaciones' }
+    ]
   }
 ];
 
-const herramientas = [
-  {
-    id: 'pts',
-    title: 'Procedimientos de Trabajo Seguro',
-    description: 'Crea procedimientos detallados para realizar trabajos de manera segura',
-    icon: FileCheck,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/pts'
-  },
-  {
-    id: 'recomendaciones',
-    title: 'Recomendaciones de Seguridad',
-    description: 'Obtén recomendaciones personalizadas para mejorar la seguridad',
-    icon: Shield,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/recomendaciones'
-  },
-  {
-    id: 'sgsst-pymes',
-    title: 'Sistema de Gestión SST para Pymes',
-    description: 'Implementa un sistema de gestión adaptado a pequeñas y medianas empresas',
-    icon: Building2,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/sgsst-pymes'
-  },
-  {
-    id: 'ats',
-    title: 'Análisis de Trabajo Seguro',
-    description: 'Analiza los riesgos asociados a cada tarea',
-    icon: Search,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/ats'
-  },
-  {
-    id: 'foda',
-    title: 'Análisis FODA',
-    description: 'Evalúa fortalezas, oportunidades, debilidades y amenazas',
-    icon: BarChart2,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/foda'
-  },
-  {
-    id: 'charla',
-    title: 'Charla de Seguridad',
-    description: 'Genera contenido para charlas de seguridad efectivas',
-    icon: Users,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/charla'
-  },
-  {
-    id: 'checklist',
-    title: 'Check List',
-    description: 'Crea listas de verificación personalizadas',
-    icon: CheckSquare,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/checklist'
-  },
-  {
-    id: 'inspecciones',
-    title: 'Inspecciones de seguridad',
-    description: 'Realiza y documenta inspecciones de seguridad',
-    icon: Search,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/inspecciones'
-  },
-  {
-    id: 'investigacion',
-    title: 'Investigación de Accidentes',
-    description: 'Analiza y documenta accidentes laborales',
-    icon: AlertTriangle,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/investigacion'
-  },
-  {
-    id: 'obligacion-informar',
-    title: 'Obligación de informar los riesgos laborales',
-    description: 'Genera documentos informativos sobre riesgos laborales',
-    icon: Info,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/obligacion-informar'
-  },
-  {
-    id: 'politicas',
-    title: 'Políticas',
-    description: 'Crea políticas de seguridad y salud ocupacional',
-    icon: FileText,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/politicas'
-  },
-  {
-    id: 'indice-uv',
-    title: 'Índice UV',
-    description: 'Consulta y analiza el índice de radiación UV',
-    icon: Sun,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/indice-uv'
-  },
-  {
-    id: 'planes-sst',
-    title: 'Asistente para crear planes de SST',
-    description: 'Crea planes completos de seguridad y salud en el trabajo',
-    icon: ClipboardCheck,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/planes-sst'
-  },
-  {
-    id: 'asistente-pts',
-    title: 'Asistente de Creación de PTS',
-    description: 'Crea procedimientos de trabajo seguro paso a paso',
-    icon: HardHat,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/asistente-pts'
-  },
-  {
-    id: 'matriz-riesgos',
-    title: 'Matriz de Riesgos',
-    description: 'Evalúa los riesgos de tus actividades laborales',
-    icon: AlertTriangle,
-    color: 'bg-safeia-yellow',
-    path: '/herramientas-sst/matriz-riesgos'
-  },
-];
-
 const HerramientasSST = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardNavbar />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 text-safeia-black">Herramientas de Seguridad y Salud en el Trabajo</h1>
-        
-        {categorias.map((categoria) => (
-          <div key={categoria.id} className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-safeia-black flex items-center">
-              {React.createElement(categoria.icon)}
-              <span className="ml-2">{categoria.titulo}</span>
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {categoria.herramientas.map((herramientaId) => {
-                const herramienta = herramientas.find(h => h.id === herramientaId);
-                if (!herramienta) return null;
-                
-                return (
-                  <Link
-                    key={herramienta.id}
-                    to={herramienta.path}
-                    className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-safeia-yellow"
-                  >
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0">
-                        <span className="p-2 bg-safeia-yellow rounded-lg inline-block">
-                          {React.createElement(herramienta.icon)}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold mb-2 text-safeia-black">
-                          {herramienta.title}
-                        </h3>
-                        <p className="text-sm text-safeia-black">
-                          {herramienta.description}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+            Herramientas SST
+          </h2>
+          <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+            Selecciona una categoría para acceder a las herramientas especializadas
+          </p>
+        </div>
+
+        <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {categorias.map((categoria) => (
+            <div
+              key={categoria.id}
+              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow duration-300"
+            >
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className={`p-3 rounded-md ${categoria.color}`}>
+                    <categoria.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="ml-4 text-lg font-medium text-gray-900">
+                    {categoria.titulo}
+                  </h3>
+                </div>
+                <p className="mt-4 text-sm text-gray-500">
+                  {categoria.descripcion}
+                </p>
+                <div className="mt-6 space-y-2">
+                  {categoria.herramientas.map((herramienta) => (
+                    <Link
+                      key={herramienta.id}
+                      to={herramienta.ruta}
+                      className="block text-sm text-gray-600 hover:text-safeia-yellow transition-colors duration-200"
+                    >
+                      • {herramienta.nombre}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

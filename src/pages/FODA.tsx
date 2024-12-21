@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DashboardNavbar from '../components/DashboardNavbar';
 import { generateFODAAnalysis } from '../services/openai';
 import { Loader2 } from 'lucide-react';
 
@@ -64,7 +63,6 @@ export default function FODA() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardNavbar />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-safeia-black mb-8">Análisis FODA en Seguridad y Salud Ocupacional</h1>
 

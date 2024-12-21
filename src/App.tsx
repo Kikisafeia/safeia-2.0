@@ -1,301 +1,237 @@
-import React, { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import Hero from './components/Hero'
-import Features from './components/Features'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Dashboard from './pages/Dashboard'
 import HerramientasSST from './pages/HerramientasSST'
-import PTS from './pages/PTS'
-import Audit from './pages/Audit'
-import Legal from './pages/Legal'
-import Investigation from './pages/Investigation'
-import RiskMatrix from './pages/RiskMatrix'
-import Tools from './pages/Tools'
-import ATS from './pages/ATS'
-import RiskMap from './pages/RiskMap'
-import Recomendaciones from './pages/Recomendaciones'
-import SGSSTPymes from './pages/SGSSTPymes'
-import CheckList from './pages/CheckList'
-import FODA from './pages/FODA'
-import CharlaSeguridadGenerator from './pages/CharlaSeguridadGenerator'
-import InspeccionesGenerator from './pages/InspeccionesGenerator'
-import InvestigacionAccidentes from './pages/InvestigacionAccidentes'
-import ObligacionInformar from './pages/ObligacionInformar'
-import Politicas from './pages/Politicas'
-import IndiceUV from './pages/herramientas-sst/indice-uv'
-import ComoFunciona from './pages/ComoFunciona'
-import AgentesEspecializados from './pages/AgentesEspecializados'
-import ProtectedRoute from './components/ProtectedRoute'
 import AuthComponent from './components/auth/AuthComponent'
 import PrivateRoute from './components/auth/PrivateRoute'
-import Profile from './components/Profile'
-import Layout from './components/layout/Layout'
-import Privacidad from './pages/Privacidad'
-import Terminos from './pages/Terminos'
-import Planes from './pages/Planes'
+import { useAuth } from './contexts/AuthContext'
+import CompanyProfileForm from './components/CompanyProfileForm'
+import Pricing from './pages/Pricing';
+import AdminSubscriptions from './pages/AdminSubscriptions';
+import ResetTokens from './pages/ResetTokens';
+
+// Importar los componentes de las herramientas
+import SGSSTPymes from './pages/SGSSTPymes'
+import RiskMatrix from './pages/RiskMatrix'
+import RiskMap from './pages/RiskMap'
+import PTS from './pages/PTS'
+import ATS from './pages/ATS'
+import Checklist from './pages/Checklist'
+import InspeccionesGenerator from './pages/InspeccionesGenerator'
+import Investigation from './pages/Investigation'
+import CharlaSeguridadGenerator from './pages/CharlaSeguridadGenerator'
+import ObligacionInformar from './pages/ObligacionInformar'
+import AgentesEspecializados from './pages/AgentesEspecializados'
+import IndiceUV from './pages/IndiceUV'
+import FODA from './pages/FODA'
+import Recomendaciones from './pages/Recomendaciones'
+import Audit from './pages/Audit'
+import Politicas from './pages/Politicas'
+import Legal from './pages/Legal'
+
+// Componente para manejar rutas públicas
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { currentUser } = useAuth();
+  
+  if (currentUser) {
+    console.log('Usuario autenticado intentando acceder a ruta pública, redirigiendo...');
+    return <Navigate to="/herramientas-sst" replace />;
+  }
+  
+  return <>{children}</>;
+};
 
 function App() {
-  console.log('App: Rendering...');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (loading) {
-    return <div>Cargando...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error.message}</div>;
-  }
-
   return (
     <Router>
-      <div className="min-h-screen bg-white">
-        <AuthProvider>
-          <Navbar />
-          <Routes>
-            <Route path="/login" element={<AuthComponent />} />
-            <Route path="/register" element={<AuthComponent />} />
-            <Route 
-              path="/dashboard" 
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/dashboard/antecedentes" 
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/agentes-especializados" 
-              element={
-                <PrivateRoute>
-                  <AgentesEspecializados />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/tools" 
-              element={
-                <PrivateRoute>
-                  <Tools />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst" 
-              element={
-                <PrivateRoute>
-                  <HerramientasSST />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/pts" 
-              element={
-                <PrivateRoute>
-                  <PTS />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/recomendaciones" 
-              element={
-                <PrivateRoute>
-                  <Recomendaciones />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/sgsst-pymes" 
-              element={
-                <PrivateRoute>
-                  <SGSSTPymes />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/ats" 
-              element={
-                <PrivateRoute>
-                  <ATS />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/foda" 
-              element={
-                <PrivateRoute>
-                  <FODA />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/charla" 
-              element={
-                <PrivateRoute>
-                  <CharlaSeguridadGenerator />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/checklist" 
-              element={
-                <PrivateRoute>
-                  <CheckList />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/inspecciones" 
-              element={
-                <PrivateRoute>
-                  <InspeccionesGenerator />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/investigacion" 
-              element={
-                <PrivateRoute>
-                  <InvestigacionAccidentes />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/obligacion-informar" 
-              element={
-                <PrivateRoute>
-                  <ObligacionInformar />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/politicas" 
-              element={
-                <PrivateRoute>
-                  <Politicas />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/indice-uv" 
-              element={
-                <PrivateRoute>
-                  <IndiceUV />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/matriz-riesgos" 
-              element={
-                <PrivateRoute>
-                  <RiskMatrix />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/mapa-riesgos" 
-              element={
-                <PrivateRoute>
-                  <RiskMap />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/planes-sst" 
-              element={
-                <PrivateRoute>
-                  <Tools type="planes-sst" />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/herramientas-sst/asistente-pts" 
-              element={
-                <PrivateRoute>
-                  <Tools type="asistente-pts" />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/como-funciona" 
-              element={
-                <PrivateRoute>
-                  <ComoFunciona />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/audit" 
-              element={
-                <PrivateRoute>
-                  <Audit />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/legal" 
-              element={
-                <PrivateRoute>
-                  <Legal />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/ats" 
-              element={
-                <PrivateRoute>
-                  <ATS />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <PrivateRoute>
-                  <Profile />
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/planes" 
-              element={
-                <PrivateRoute>
-                  <Planes />
-                </PrivateRoute>
-              } 
-            />
-            <Route path="/privacidad" element={<Privacidad />} />
-            <Route path="/terminos" element={<Terminos />} />
-            <Route 
-              path="/" 
-              element={<Navigate to="/dashboard/antecedentes" replace />} 
-            />
-            <Route 
-              path="*" 
-              element={<Navigate to="/dashboard/antecedentes" replace />} 
-            />
-          </Routes>
-          <Footer />
-        </AuthProvider>
-      </div>
+      <AuthProvider>
+        <Routes>
+          {/* Ruta principal - Landing Page */}
+          <Route path="/" element={
+            <PublicRoute>
+              <div>
+                <Navbar />
+                <Hero />
+                <Footer />
+              </div>
+            </PublicRoute>
+          } />
+
+          {/* Rutas de autenticación */}
+          <Route path="/login" element={
+            <PublicRoute>
+              <AuthComponent type="login" />
+            </PublicRoute>
+          } />
+          
+          <Route path="/register" element={
+            <PublicRoute>
+              <AuthComponent type="register" />
+            </PublicRoute>
+          } />
+
+          {/* Rutas protegidas */}
+          <Route element={
+            <>
+              <Navbar />
+              <div className="min-h-screen bg-gray-100">
+                <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                  <Outlet />
+                </div>
+              </div>
+              <Footer />
+            </>
+          }>
+            <Route path="/dashboard" element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            } />
+
+            <Route path="/herramientas-sst" element={
+              <PrivateRoute>
+                <HerramientasSST />
+              </PrivateRoute>
+            } />
+
+            <Route path="/company-profile" element={
+              <PrivateRoute>
+                <CompanyProfileForm />
+              </PrivateRoute>
+            } />
+
+            <Route path="/pricing" element={<Pricing />} />
+
+            {/* Gestión de SST */}
+            <Route path="/herramientas-sst/sgsst-pymes" element={
+              <PrivateRoute>
+                <SGSSTPymes />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/audit" element={
+              <PrivateRoute>
+                <Audit />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/politicas" element={
+              <PrivateRoute>
+                <Politicas />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/legal" element={
+              <PrivateRoute>
+                <Legal />
+              </PrivateRoute>
+            } />
+
+            {/* Prevención de Riesgos */}
+            <Route path="/herramientas-sst/risk-matrix" element={
+              <PrivateRoute>
+                <RiskMatrix />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/risk-map" element={
+              <PrivateRoute>
+                <RiskMap />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/pts" element={
+              <PrivateRoute>
+                <PTS />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/ats" element={
+              <PrivateRoute>
+                <ATS />
+              </PrivateRoute>
+            } />
+
+            {/* Inspecciones y Controles */}
+            <Route path="/herramientas-sst/checklist" element={
+              <PrivateRoute>
+                <Checklist />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/inspecciones-generator" element={
+              <PrivateRoute>
+                <InspeccionesGenerator />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/investigation" element={
+              <PrivateRoute>
+                <Investigation />
+              </PrivateRoute>
+            } />
+
+            {/* Capacitación y Comunicación */}
+            <Route path="/herramientas-sst/charlas-generator" element={
+              <PrivateRoute>
+                <CharlaSeguridadGenerator />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/obligacion-informar" element={
+              <PrivateRoute>
+                <ObligacionInformar />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/agentes-especializados" element={
+              <PrivateRoute>
+                <AgentesEspecializados />
+              </PrivateRoute>
+            } />
+
+            {/* Monitoreo y Análisis */}
+            <Route path="/herramientas-sst/indice-uv" element={
+              <PrivateRoute>
+                <IndiceUV />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/foda" element={
+              <PrivateRoute>
+                <FODA />
+              </PrivateRoute>
+            } />
+            <Route path="/herramientas-sst/recomendaciones" element={
+              <PrivateRoute>
+                <Recomendaciones />
+              </PrivateRoute>
+            } />
+
+            <Route path="/admin/subscriptions" element={
+              <PrivateRoute>
+                <AdminSubscriptions />
+              </PrivateRoute>
+            } />
+
+            <Route path="/reset-tokens" element={
+              <PrivateRoute>
+                <ResetTokens />
+              </PrivateRoute>
+            } />
+          </Route>
+
+          <Route path="/pricing" element={
+            <>
+              <Navbar />
+              <div className="min-h-screen bg-gray-100">
+                <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                  <Pricing />
+                </div>
+              </div>
+              <Footer />
+            </>
+          } />
+
+          {/* Ruta por defecto - Redirige a la landing page */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
     </Router>
-  );
+  )
 }
 
 export default App

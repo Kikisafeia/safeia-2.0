@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import EmailAuthForm from './EmailAuthForm';
 import { useAuth } from '../../contexts/AuthContext';
+import EmailAuthForm from './EmailAuthForm';
+import { 
+  GoogleAuthProvider, 
+  signInWithRedirect, 
+  signInWithPopup,
+  getRedirectResult,
+  browserPopupRedirectResolver,
+  browserLocalPersistence,
+  inMemoryPersistence,
+  setPersistence
+} from 'firebase/auth';
+import { auth } from '../../config/firebase';
+import { getAuthErrorMessage } from '../../utils/errorMessages';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -19,132 +31,224 @@ function TabPanel(props: TabPanelProps) {
       id={`auth-tabpanel-${index}`}
       aria-labelledby={`auth-tab-${index}`}
       {...other}
-      className="p-6"
     >
-      {value === index && children}
+      {value === index && <div>{children}</div>}
     </div>
   );
 }
 
-const AuthComponent: React.FC = () => {
+const AuthComponent = () => {
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
-  const { signInWithGoogle, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentUser } = useAuth();
 
-  // Redirigir si el usuario ya está autenticado
   useEffect(() => {
     if (currentUser) {
-      navigate('/dashboard');
+      console.log('Usuario autenticado, redirigiendo desde AuthComponent');
+      navigate('/herramientas-sst', { replace: true });
     }
   }, [currentUser, navigate]);
 
-  const handleGoogleLogin = async () => {
-    try {
+  const handleError = (error: any) => {
+    console.error('Error en autenticación:', error);
+    setError(getAuthErrorMessage(error));
+    setIsLoading(false);
+
+    // Limpiar el error después de 5 segundos
+    setTimeout(() => {
       setError(null);
-      setLoading(true);
-      await signInWithGoogle();
-      // La redirección se manejará en el useEffect cuando currentUser se actualice
-    } catch (err) {
-      console.error('Error during Google login:', err);
-      setError('Error al iniciar sesión con Google. Por favor, intenta nuevamente.');
+    }, 5000);
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const currentPath = location.pathname;
+      console.log('Guardando ruta actual para redirección:', currentPath);
+      sessionStorage.setItem('redirectPath', currentPath);
+
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+
+      // Detectar navegador y versión
+      const isChrome = navigator.userAgent.indexOf('Chrome') > -1;
+      const chromeVersion = isChrome ? 
+        parseInt(navigator.userAgent.match(/Chrome\/([0-9]+)/)?.[1] || '0') : 0;
+      
+      console.log('Información del navegador:', {
+        isChrome,
+        chromeVersion,
+        userAgent: navigator.userAgent
+      });
+
+      // Usar popup por defecto para Chrome 115+ y otros navegadores modernos
+      const shouldUsePopup = isChrome && chromeVersion >= 115;
+
+      if (shouldUsePopup) {
+        console.log('Usando popup para Chrome 115+ o superior');
+        try {
+          // Cambiar a persistencia en memoria para evitar problemas con cookies
+          await setPersistence(auth, inMemoryPersistence);
+          const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+          
+          if (result.user) {
+            console.log('Login con popup exitoso:', result.user.email);
+            // Restaurar persistencia local después del login exitoso
+            try {
+              await setPersistence(auth, browserLocalPersistence);
+            } catch (persistenceError) {
+              console.warn('No se pudo restaurar persistencia local:', persistenceError);
+            }
+            handlePostLoginRedirect();
+          }
+        } catch (popupError: any) {
+          console.error('Error en popup:', popupError);
+          throw popupError;
+        }
+      } else {
+        // Para otros navegadores o versiones anteriores, intentar redirección primero
+        try {
+          console.log('Iniciando sign in con redirección...');
+          await signInWithRedirect(auth, provider);
+          console.log('Redirección iniciada exitosamente');
+        } catch (redirectError: any) {
+          console.warn('Error en signInWithRedirect:', redirectError);
+          
+          // Si falla la redirección, usar popup como fallback
+          console.log('Usando popup como fallback después de error de redirección');
+          const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+          if (result.user) {
+            console.log('Login con popup fallback exitoso:', result.user.email);
+            handlePostLoginRedirect();
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Error en la autenticación:', error);
+      setError(getAuthErrorMessage(error));
+      setTimeout(() => setError(null), 5000);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Si el usuario ya está autenticado, no mostrar el formulario de login
+  const handlePostLoginRedirect = () => {
+    const redirectPath = sessionStorage.getItem('redirectPath');
+    if (redirectPath) {
+      navigate(redirectPath, { replace: true });
+    } else {
+      navigate('/herramientas-sst', { replace: true });
+    }
+  };
+
+  // Manejar el resultado de la redirección al cargar
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        console.log('Verificando resultado de redirección...');
+        const result = await getRedirectResult(auth, browserPopupRedirectResolver);
+        if (result?.user) {
+          console.log('Usuario autenticado exitosamente por redirección:', result.user.email);
+          handlePostLoginRedirect();
+        } else {
+          console.log('No hay resultado de redirección pendiente');
+        }
+      } catch (error: any) {
+        console.error('Error al procesar resultado de redirección:', error);
+        setError(getAuthErrorMessage(error));
+        setTimeout(() => setError(null), 5000);
+      }
+    };
+
+    handleRedirectResult();
+  }, []);
+
   if (currentUser) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-safeia-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Bienvenido a SAFEIA
+        <img
+          className="mx-auto h-16 w-auto"
+          src="/SAFEIA LOGO.jpg"
+          alt="SAFEIA"
+        />
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-safeia-black">
+          Iniciar sesión
         </h2>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-              <span className="block sm:inline">{error}</span>
+            <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-4 rounded relative" role="alert">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+                <button
+                  className="ml-auto -mx-1.5 -my-1.5 bg-red-50 text-red-500 rounded-lg focus:ring-2 focus:ring-red-400 p-1.5 hover:bg-red-200 inline-flex h-8 w-8"
+                  onClick={() => setError(null)}
+                >
+                  <span className="sr-only">Cerrar</span>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
 
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex" aria-label="Tabs">
-              <button
-                onClick={() => setTabValue(0)}
-                className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
-                  tabValue === 0
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Iniciar sesión
-              </button>
-              <button
-                onClick={() => setTabValue(1)}
-                className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
-                  tabValue === 1
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Registrarse
-              </button>
-            </nav>
-          </div>
-
-          <TabPanel value={tabValue} index={0}>
-            <EmailAuthForm mode="login" />
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={1}>
-            <EmailAuthForm mode="signup" />
-          </TabPanel>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">O</span>
-              </div>
-            </div>
-
+          <div className="space-y-6">
+            <EmailAuthForm 
+              onSuccess={() => setError(null)} 
+              onError={handleError} 
+            />
+            
             <div className="mt-6">
-              <button
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
-              >
-                {loading ? (
-                  <span>Cargando...</span>
-                ) : (
-                  <span className="flex items-center">
-                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                      <path
-                        fill="currentColor"
-                        d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"
-                      />
-                    </svg>
-                    Continuar con Google
-                  </span>
-                )}
-              </button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-safeia-gray" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-safeia-gray">O continuar con</span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-safeia-yellow hover:bg-safeia-yellow-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-safeia-yellow transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 border-t-2 border-b-2 border-white rounded-full animate-spin mr-2"></div>
+                      Iniciando sesión...
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <img src="/google.svg" alt="Google" className="w-5 h-5 mr-2" />
+                      Continuar con Google
+                    </div>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-
-          <p className="mt-6 text-xs text-center text-gray-500">
-            Al continuar, aceptas nuestros Términos de servicio y Política de privacidad
-          </p>
         </div>
       </div>
     </div>

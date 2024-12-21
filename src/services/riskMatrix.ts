@@ -171,21 +171,18 @@ La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato
     let assessment;
     
     try {
-      assessment = JSON.parse(data.choices[0].message.content.trim());
-    } catch (parseError) {
-      console.error('Error al parsear JSON inicial:', parseError);
-      
+      // Primero limpiamos el contenido de markdown
       const cleanContent = data.choices[0].message.content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
-      try {
-        assessment = JSON.parse(cleanContent);
-      } catch (secondParseError) {
-        console.error('Error al parsear JSON limpio:', secondParseError);
-        throw new Error('No se pudo procesar la respuesta del servicio');
-      }
+      // Luego intentamos parsear
+      assessment = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('Error al parsear JSON:', parseError);
+      console.log('Contenido recibido:', data.choices[0].message.content);
+      throw new Error('No se pudo procesar la respuesta del servicio');
     }
 
     if (!assessment.probability || !assessment.severity || !assessment.riskLevel || 
@@ -352,22 +349,18 @@ La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato
     let result;
     
     try {
-      result = JSON.parse(data.choices[0].message.content.trim());
-    } catch (parseError) {
-      console.error('Error al parsear JSON inicial:', parseError);
-      
+      // Primero limpiamos el contenido de markdown
       const cleanContent = data.choices[0].message.content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
-      try {
-        result = JSON.parse(cleanContent);
-      } catch (secondParseError) {
-        console.error('Error al parsear JSON limpio:', secondParseError);
-        console.error('Contenido recibido:', data.choices[0].message.content);
-        throw new Error('No se pudo procesar la respuesta del servicio');
-      }
+      // Luego intentamos parsear
+      result = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('Error al parsear JSON:', parseError);
+      console.log('Contenido recibido:', data.choices[0].message.content);
+      throw new Error('No se pudo procesar la respuesta del servicio');
     }
 
     if (!Array.isArray(result?.tasks)) {
@@ -445,22 +438,18 @@ La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato
     let result;
     
     try {
-      result = JSON.parse(data.choices[0].message.content.trim());
-    } catch (parseError) {
-      console.error('Error al parsear JSON inicial:', parseError);
-      
+      // Primero limpiamos el contenido de markdown
       const cleanContent = data.choices[0].message.content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
-      try {
-        result = JSON.parse(cleanContent);
-      } catch (secondParseError) {
-        console.error('Error al parsear JSON limpio:', secondParseError);
-        console.error('Contenido recibido:', data.choices[0].message.content);
-        throw new Error('No se pudo procesar la respuesta del servicio');
-      }
+      // Luego intentamos parsear
+      result = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('Error al parsear JSON:', parseError);
+      console.log('Contenido recibido:', data.choices[0].message.content);
+      throw new Error('No se pudo procesar la respuesta del servicio');
     }
 
     if (!result.associatedRisk || !Array.isArray(result.potentialDamage)) {
@@ -574,22 +563,18 @@ Formato de respuesta:
     let result;
     
     try {
-      result = JSON.parse(data.choices[0].message.content.trim());
-    } catch (parseError) {
-      console.error('Error al parsear JSON inicial:', parseError);
-      
+      // Primero limpiamos el contenido de markdown
       const cleanContent = data.choices[0].message.content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
-      try {
-        result = JSON.parse(cleanContent);
-      } catch (secondParseError) {
-        console.error('Error al parsear JSON limpio:', secondParseError);
-        console.error('Contenido recibido:', data.choices[0].message.content);
-        throw new Error('No se pudo procesar la respuesta del servicio');
-      }
+      // Luego intentamos parsear
+      result = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('Error al parsear JSON:', parseError);
+      console.log('Contenido recibido:', data.choices[0].message.content);
+      throw new Error('No se pudo procesar la respuesta del servicio');
     }
 
     // Validar la estructura de la respuesta

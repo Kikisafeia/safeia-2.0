@@ -6,12 +6,9 @@ export const initializeUserPlan = async (userId: string) => {
     const userDocRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userDocRef);
 
-    const planInicial = {
-      tipo: 'Básico',
-      tokensUsados: 0,
-      tokensDisponibles: 1000,
-      fechaInicio: new Date(),
-      fechaFin: new Date(new Date().setMonth(new Date().getMonth() + 1))
+    const initialData = {
+      tokens: 10000,
+      lastTokenReset: new Date().toISOString()
     };
 
     if (!userDoc.exists()) {
@@ -19,28 +16,25 @@ export const initializeUserPlan = async (userId: string) => {
       await setDoc(userDocRef, {
         uid: userId,
         createdAt: new Date(),
-        plan: planInicial
+        ...initialData
       });
-      console.log('Usuario creado con plan inicial');
-      return planInicial;
+      console.log('Usuario creado con 10,000 tokens iniciales');
+      return initialData;
     }
 
     const userData = userDoc.data();
     
-    // Initialize plan if it doesn't exist
-    if (!userData.plan) {
-      await updateDoc(userDocRef, {
-        plan: planInicial
-      });
-
-      console.log('Plan inicializado correctamente');
-      return planInicial;
+    // Initialize tokens if they don't exist
+    if (typeof userData.tokens === 'undefined') {
+      await updateDoc(userDocRef, initialData);
+      console.log('Tokens inicializados: 10,000');
+      return initialData;
     } else {
-      console.log('El usuario ya tiene un plan');
-      return userData.plan;
+      console.log('El usuario ya tiene tokens:', userData.tokens);
+      return userData;
     }
   } catch (error) {
-    console.error('Error al inicializar el plan:', error);
+    console.error('Error al inicializar tokens:', error);
     throw error;
   }
 };

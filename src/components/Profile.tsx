@@ -53,6 +53,7 @@ export default function Profile() {
       <div className="max-w-3xl mx-auto px-4">
         {/* Encabezado del perfil */}
         <div className="mb-8">
+          <img class="h-8 w-auto" src="/logo-footer.png" alt="SAFEIA"/>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Mi Perfil
           </h2>

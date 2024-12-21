@@ -2,12 +2,12 @@ import { useState, useCallback } from 'react';
 import { PlusCircle, MinusCircle, FileText, Download, Upload, Wand2, Search, Loader2 } from 'lucide-react';
 import { generateATSAnalysis } from '../services/ats';
 import { AnalisisTrabajoSeguro } from '../types/ats';
-import DashboardNavbar from '../components/DashboardNavbar';
 import RiskMapViewer from '../components/RiskMapViewer';
 import { analyzeWorkplaceImage } from '../services/riskMap';
 import { RiskMap as RiskMapType } from '../types/riskMap';
 import { useDropzone } from 'react-dropzone';
 import { OpenAIClient, AzureKeyCredential } from '@azure/openai';
+import { ATSInitializer } from '../components/ATSInitializer';
 
 export default function ATS() {
   const [loading, setLoading] = useState(false);
@@ -25,6 +25,28 @@ export default function ATS() {
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [legislacion, setLegislacion] = useState<string[]>([]);
   const [loadingLegislacion, setLoadingLegislacion] = useState(false);
+  const [inicializado, setInicializado] = useState(false);
+
+  const handleInitialize = async (descripcionInicial: string, imageUrl?: string) => {
+    setDescripcion(descripcionInicial);
+    if (imageUrl) {
+      setIsAnalyzingImage(true);
+      try {
+        const result = await analyzeWorkplaceImage(imageUrl, {
+          workplaceType: 'Área industrial',
+          activities: [descripcionInicial],
+          existingHazards: []
+        });
+        setRiskMap(result);
+      } catch (err) {
+        setError('Error al analizar la imagen. Por favor, intente nuevamente.');
+        console.error(err);
+      } finally {
+        setIsAnalyzingImage(false);
+      }
+    }
+    setInicializado(true);
+  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -286,6 +308,8 @@ IMPORTANTE: SOLO debes proporcionar legislación vigente de ${pais.toUpperCase()
 
 Actividad: ${actividad}
 ${area ? `Área: ${area}` : ''}
+Fecha: ${fecha}
+País: ${pais}
 
 Proporciona ÚNICAMENTE los cuerpos legales aplicables (leyes, decretos, etc.) con sus artículos relevantes. NO incluyas recomendaciones ni explicaciones adicionales.
 
@@ -464,274 +488,237 @@ RECUERDA: Solo legislación de ${pais.toUpperCase()}, no de otros países.`
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <DashboardNavbar />
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="bg-white shadow sm:rounded-lg mb-6">
           <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 text-safeia-black">
-              Análisis de Trabajo Seguro (ATS)
-            </h3>
+            {inicializado ? (
+              <div>
+                <h3 className="text-lg leading-6 font-medium text-gray-900 text-safeia-black">
+                  Análisis de Trabajo Seguro (ATS)
+                </h3>
 
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <h4 className="text-md leading-6 font-medium text-gray-900 mb-4 text-safeia-black">
-                Información de la Actividad
-              </h4>
-              <div className="space-y-6">
-                <div>
-                  <label htmlFor="actividad" className="block text-sm font-medium text-gray-700 text-safeia-black">
-                    Nombre de la Actividad
-                  </label>
-                  <input
-                    type="text"
-                    id="actividad"
-                    value={actividad}
-                    onChange={(e) => setActividad(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
-                    placeholder="Ej: Trabajo en Altura"
-                  />
-                </div>
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <h4 className="text-md leading-6 font-medium text-gray-900 mb-4 text-safeia-black">
+                    Información de la Actividad
+                  </h4>
+                  <div className="space-y-6">
+                    <div>
+                      <label htmlFor="actividad" className="block text-sm font-medium text-gray-700 text-safeia-black">
+                        Nombre de la Actividad
+                      </label>
+                      <input
+                        type="text"
+                        id="actividad"
+                        value={actividad}
+                        onChange={(e) => setActividad(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                        placeholder="Ej: Trabajo en Altura"
+                      />
+                    </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha
-                  </label>
-                  <input
-                    type="date"
-                    value={fecha}
-                    onChange={(e) => setFecha(e.target.value)}
-                    className="w-full p-2 border rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
-                    required
-                  />
-                </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha
+                      </label>
+                      <input
+                        type="date"
+                        value={fecha}
+                        onChange={(e) => setFecha(e.target.value)}
+                        className="w-full p-2 border rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                        required
+                      />
+                    </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    País
-                  </label>
-                  <input
-                    type="text"
-                    value={pais}
-                    onChange={(e) => setPais(e.target.value)}
-                    placeholder="Ingrese el país"
-                    className="w-full p-2 border rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
-                    required
-                  />
-                </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        País
+                      </label>
+                      <input
+                        type="text"
+                        value={pais}
+                        onChange={(e) => setPais(e.target.value)}
+                        placeholder="Ingrese el país"
+                        className="w-full p-2 border rounded-md focus:ring-safeia-yellow focus:border-safeia-yellow"
+                        required
+                      />
+                    </div>
 
-                <div>
-                  <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 text-safeia-black">
-                    Descripción de la Actividad
-                  </label>
-                  <div className="mt-1 flex gap-2">
-                    <textarea
-                      id="descripcion"
-                      value={descripcion}
-                      onChange={(e) => setDescripcion(e.target.value)}
-                      rows={3}
-                      className="block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
-                      placeholder="Describa la actividad a realizar..."
-                    />
+                    <div>
+                      <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 text-safeia-black">
+                        Descripción de la Actividad
+                      </label>
+                      <div className="mt-1 flex gap-2">
+                        <textarea
+                          id="descripcion"
+                          value={descripcion}
+                          onChange={(e) => setDescripcion(e.target.value)}
+                          rows={3}
+                          className="block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                          placeholder="Describa la actividad a realizar..."
+                        />
+                        <button
+                          onClick={generarDescripcion}
+                          disabled={loadingDescription || !actividad.trim()}
+                          className="px-3 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                          title="Generar descripción con IA"
+                        >
+                          <Wand2 className={`w-5 h-5 ${loadingDescription ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="area" className="block text-sm font-medium text-gray-700 text-safeia-black">
+                        Área de Trabajo
+                      </label>
+                      <input
+                        type="text"
+                        id="area"
+                        value={area}
+                        onChange={(e) => setArea(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="Ej: Taller de Mantenimiento"
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={buscarLegislacion}
+                        disabled={loadingLegislacion || !actividad.trim() || !pais.trim()}
+                        className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors ${
+                          loadingLegislacion ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {loadingLegislacion ? (
+                          <>
+                            <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                            Buscando legislación...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="-ml-1 mr-2 h-4 w-4" />
+                            Buscar Legislación Aplicable
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {legislacion.length > 0 && (
+                      <div className="mt-4">
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Legislación Aplicable</h3>
+                        <ul className="list-disc pl-5 space-y-2">
+                          {legislacion.map((ley, index) => (
+                            <li key={index} className="text-sm text-gray-700">{ley}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-sm font-medium text-gray-900 text-safeia-black">Pasos de la Actividad</h5>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={generarPasos}
+                            disabled={loadingPasos || !actividad.trim() || !descripcion.trim() || !fecha || !pais.trim()}
+                            className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors ${
+                              loadingPasos ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title="Generar pasos con IA"
+                          >
+                            <Wand2 className={`h-4 w-4 mr-1 ${loadingPasos ? 'animate-spin' : ''}`} />
+                            {loadingPasos ? 'Generando...' : 'Sugerir Pasos'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={agregarPaso}
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors"
+                          >
+                            <PlusCircle className="h-4 w-4 mr-1" />
+                            Agregar Paso
+                          </button>
+                        </div>
+                      </div>
+
+                      {pasos.map((paso, index) => (
+                        <div key={index} className="flex gap-2">
+                          <input
+                            type="text"
+                            value={paso}
+                            onChange={(e) => actualizarPaso(index, e.target.value)}
+                            className="block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                            placeholder={`Paso ${index + 1}`}
+                          />
+                          {pasos.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => eliminarPaso(index)}
+                              className="inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200"
+                            >
+                              <MinusCircle className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg
+                            className="h-5 w-5 text-red-400"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex justify-end">
                     <button
-                      onClick={generarDescripcion}
-                      disabled={loadingDescription || !actividad.trim()}
-                      className="px-3 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                      title="Generar descripción con IA"
+                      type="button"
+                      onClick={generarAnalisis}
+                      disabled={loading}
+                      className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-safeia-yellow hover:bg-safeia-yellow-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-safeia-yellow ${
+                        loading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
-                      <Wand2 className={`w-5 h-5 ${loadingDescription ? 'animate-spin' : ''}`} />
+                      {loading ? (
+                        <>
+                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Generar Análisis
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="area" className="block text-sm font-medium text-gray-700 text-safeia-black">
-                    Área de Trabajo
-                  </label>
-                  <input
-                    type="text"
-                    id="area"
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="Ej: Taller de Mantenimiento"
-                  />
-                </div>
-
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={buscarLegislacion}
-                    disabled={loadingLegislacion || !actividad.trim() || !pais.trim()}
-                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors ${
-                      loadingLegislacion ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    {loadingLegislacion ? (
-                      <>
-                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                        Buscando legislación...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="-ml-1 mr-2 h-4 w-4" />
-                        Buscar Legislación Aplicable
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {legislacion.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Legislación Aplicable</h3>
-                    <ul className="list-disc pl-5 space-y-2">
-                      {legislacion.map((ley, index) => (
-                        <li key={index} className="text-sm text-gray-700">{ley}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-safeia-black">
-                    Imagen del Área de Trabajo
-                  </label>
-                  <div
-                    {...getRootProps()}
-                    className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:border-blue-500 transition-colors ${
-                      isDragActive ? 'border-blue-500 bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="space-y-1 text-center">
-                      <input {...getInputProps()} />
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="flex text-sm text-gray-600">
-                        <label className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500">
-                          <span>Sube una imagen</span>
-                        </label>
-                        <p className="pl-1">o arrastra y suelta aquí</p>
-                      </div>
-                      <p className="text-xs text-gray-500">PNG, JPG hasta 10MB</p>
-                    </div>
-                  </div>
-                </div>
-
-                {isAnalyzingImage && (
-                  <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    <p className="mt-2 text-sm text-gray-600">Analizando imagen...</p>
-                  </div>
-                )}
-
-                {riskMap && (
-                  <div className="mt-4">
-                    <h5 className="text-sm font-medium text-gray-900 mb-2 text-safeia-black">
-                      Mapa de Riesgos
-                    </h5>
-                    <div className="border rounded-lg overflow-hidden">
-                      <RiskMapViewer riskMap={riskMap} />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-sm font-medium text-gray-900 text-safeia-black">Pasos de la Actividad</h5>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={generarPasos}
-                        disabled={loadingPasos || !actividad.trim() || !descripcion.trim() || !fecha || !pais.trim()}
-                        className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors ${
-                          loadingPasos ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        title="Generar pasos con IA"
-                      >
-                        <Wand2 className={`h-4 w-4 mr-1 ${loadingPasos ? 'animate-spin' : ''}`} />
-                        {loadingPasos ? 'Generando...' : 'Sugerir Pasos'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={agregarPaso}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-safeia-black bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors"
-                      >
-                        <PlusCircle className="h-4 w-4 mr-1" />
-                        Agregar Paso
-                      </button>
-                    </div>
-                  </div>
-
-                  {pasos.map((paso, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={paso}
-                        onChange={(e) => actualizarPaso(index, e.target.value)}
-                        className="block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
-                        placeholder={`Paso ${index + 1}`}
-                      />
-                      {pasos.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => eliminarPaso(index)}
-                          className="inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200"
-                        >
-                          <MinusCircle className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {renderAnalisis()}
               </div>
-
-              {error && (
-                <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-5 w-5 text-red-400"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-red-700">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="button"
-                  onClick={generarAnalisis}
-                  disabled={loading}
-                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-safeia-yellow hover:bg-safeia-yellow-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-safeia-yellow ${
-                    loading ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  {loading ? (
-                    <>
-                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Generando...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="h-4 w-4 mr-1" />
-                      Generar Análisis
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {renderAnalisis()}
+            ) : (
+              <ATSInitializer onInitialize={handleInitialize} />
+            )}
           </div>
         </div>
       </div>

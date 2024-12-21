@@ -1,130 +1,101 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUser, canUseTokens, recordTokenUsage } from '../services/database';
-import type { User } from '../services/database';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { checkSubscriptionStatus } from '../services/paypal';
+import type { Subscription } from '../types/subscription';
 
 interface SubscriptionFeatures {
-  maxTokensPerGeneration: number;
-  hasWatermark: boolean;
-  hasAdvancedFeatures: boolean;
-  hasCustomDomain: boolean;
-  hasAnalytics: boolean;
-  hasPrioritySupport: boolean;
+  hasAccess: boolean;
+  isInTrial: boolean;
+  daysLeftInTrial: number;
+  currentPlan: string | null;
+  isActive: boolean;
 }
-
-const SUBSCRIPTION_FEATURES: Record<User['subscription'], SubscriptionFeatures> = {
-  'free': {
-    maxTokensPerGeneration: 5,
-    hasWatermark: true,
-    hasAdvancedFeatures: false,
-    hasCustomDomain: false,
-    hasAnalytics: false,
-    hasPrioritySupport: false
-  },
-  'pro-weekly': {
-    maxTokensPerGeneration: 10,
-    hasWatermark: false,
-    hasAdvancedFeatures: true,
-    hasCustomDomain: false,
-    hasAnalytics: false,
-    hasPrioritySupport: false
-  },
-  'pro-monthly': {
-    maxTokensPerGeneration: 10000,
-    hasWatermark: false,
-    hasAdvancedFeatures: true,
-    hasCustomDomain: false,
-    hasAnalytics: true,
-    hasPrioritySupport: true
-  },
-  'pro-3months': {
-    maxTokensPerGeneration: 11000,
-    hasWatermark: false,
-    hasAdvancedFeatures: true,
-    hasCustomDomain: false,
-    hasAnalytics: true,
-    hasPrioritySupport: true
-  },
-  'pro-plus': {
-    maxTokensPerGeneration: 25000,
-    hasWatermark: false,
-    hasAdvancedFeatures: true,
-    hasCustomDomain: true,
-    hasAnalytics: true,
-    hasPrioritySupport: true
-  }
-};
 
 export function useSubscription() {
   const { currentUser } = useAuth();
-  const [userData, setUserData] = useState<User | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [features, setFeatures] = useState<SubscriptionFeatures>({
+    hasAccess: false,
+    isInTrial: false,
+    daysLeftInTrial: 0,
+    currentPlan: null,
+    isActive: false
+  });
 
   useEffect(() => {
-    async function loadUserData() {
+    async function loadSubscriptionData() {
       if (!currentUser) {
         setLoading(false);
         return;
       }
 
       try {
-        const user = await getUser(currentUser.uid);
-        setUserData(user);
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          setLoading(false);
+          return;
+        }
+
+        const userData = userDoc.data();
+        
+        if (userData.subscriptionId) {
+          const subscriptionRef = doc(db, 'subscriptions', userData.subscriptionId);
+          const subscriptionDoc = await getDoc(subscriptionRef);
+          
+          if (subscriptionDoc.exists()) {
+            const subscriptionData = subscriptionDoc.data() as Subscription;
+            setSubscription(subscriptionData);
+            
+            const now = new Date();
+            const trialEnd = new Date(subscriptionData.trialEndsAt);
+            const daysLeft = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+            
+            setFeatures({
+              hasAccess: await checkSubscriptionStatus(currentUser.uid),
+              isInTrial: subscriptionData.status === 'trial',
+              daysLeftInTrial: daysLeft,
+              currentPlan: subscriptionData.planId,
+              isActive: subscriptionData.status === 'active' || subscriptionData.status === 'trial'
+            });
+          }
+        }
       } catch (err) {
-        setError('Error al cargar los datos del usuario');
-        console.error(err);
+        console.error('Error loading subscription:', err);
+        setError('Error al cargar los datos de la suscripción');
       } finally {
         setLoading(false);
       }
     }
 
-    loadUserData();
+    loadSubscriptionData();
   }, [currentUser]);
 
-  const checkFeatureAccess = (feature: keyof SubscriptionFeatures): boolean => {
-    if (!userData) return false;
-    return SUBSCRIPTION_FEATURES[userData.subscription][feature];
+  const checkAccess = async (): Promise<boolean> => {
+    if (!currentUser) return false;
+    return checkSubscriptionStatus(currentUser.uid);
   };
 
-  const useTokens = async (amount: number, feature: string): Promise<boolean> => {
-    if (!currentUser || !userData) return false;
-
-    try {
-      const canUse = await canUseTokens(currentUser.uid, amount);
-      if (!canUse) {
-        setError('Has alcanzado tu límite de tokens');
-        return false;
-      }
-
-      await recordTokenUsage(currentUser.uid, amount, feature);
-      const updatedUser = await getUser(currentUser.uid);
-      setUserData(updatedUser);
-      return true;
-    } catch (err) {
-      setError('Error al usar tokens');
-      console.error(err);
-      return false;
-    }
-  };
-
-  const getRemainingTokens = (): number => {
-    if (!userData) return 0;
-    return userData.tokenLimit - userData.tokenCount;
-  };
-
-  const getFeatures = (): SubscriptionFeatures | null => {
-    if (!userData) return null;
-    return SUBSCRIPTION_FEATURES[userData.subscription];
+  const getTrialDaysLeft = (): number => {
+    if (!subscription || subscription.status !== 'trial') return 0;
+    const now = new Date();
+    const trialEnd = new Date(subscription.trialEndsAt);
+    return Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
   };
 
   return {
-    userData,
+    subscription,
+    features,
     loading,
     error,
-    checkFeatureAccess,
-    useTokens,
-    getRemainingTokens,
-    getFeatures
+    checkAccess,
+    getTrialDaysLeft,
+    isLoading: loading,
+    isError: !!error
   };
 }

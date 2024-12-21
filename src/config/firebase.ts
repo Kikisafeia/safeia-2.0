@@ -1,111 +1,96 @@
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
 import { 
   getAuth, 
-  GoogleAuthProvider,
+  setPersistence, 
   browserLocalPersistence,
   browserSessionPersistence,
-  setPersistence,
-  indexedDBLocalPersistence
+  inMemoryPersistence,
+  connectAuthEmulator
 } from 'firebase/auth';
-import { 
-  getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  enableMultiTabIndexedDbPersistence,
-  CACHE_SIZE_UNLIMITED
-} from 'firebase/firestore';
 
-// Validate required environment variables
-const requiredEnvVars = [
-  'VITE_FIREBASE_API_KEY',
-  'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID'
-];
-
-for (const envVar of requiredEnvVars) {
-  if (!import.meta.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
-  }
-}
-
+// Configuración de Firebase con soporte para dominio personalizado
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  // Usar el dominio personalizado como authDomain si está disponible
+  authDomain: import.meta.env.VITE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase (only if not already initialized)
+// Inicializar Firebase
 let app;
-if (getApps().length === 0) {
+try {
   app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
+  console.log('Firebase App inicializado correctamente');
+} catch (error) {
+  console.error('Error al inicializar Firebase App:', error);
+  throw error;
 }
 
-// Initialize Firebase Authentication
+// Inicializar Auth
 const auth = getAuth(app);
+console.log('Firebase Auth inicializado correctamente');
 
-// Set persistence with fallback
-const initAuth = async () => {
+// Configurar el emulador si está habilitado
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
   try {
-    await setPersistence(auth, browserLocalPersistence);
-    console.log('Firebase Auth: Using local persistence');
+    connectAuthEmulator(auth, 'http://localhost:9099');
+    console.log('Emulador de Auth conectado correctamente');
   } catch (error) {
-    console.warn('Local persistence failed, falling back to session persistence:', error);
+    console.error('Error al conectar el emulador de Auth:', error);
+  }
+}
+
+// Inicializar Firestore con manejo de errores
+let db;
+try {
+  db = getFirestore(app);
+  console.log('Firestore inicializado correctamente');
+} catch (error) {
+  console.error('Error al inicializar Firestore:', error);
+  throw error;
+}
+
+// Configurar persistencia con fallback
+const configurePersistence = async () => {
+  const testLocalStorage = () => {
     try {
-      await setPersistence(auth, browserSessionPersistence);
-      console.log('Firebase Auth: Using session persistence');
-    } catch (error) {
-      console.error('Failed to set any persistence mode:', error);
+      localStorage.setItem('test', 'test');
+      localStorage.removeItem('test');
+      return true;
+    } catch (e) {
+      console.error('Error al probar localStorage:', e);
+      return false;
+    }
+  };
+
+  try {
+    if (testLocalStorage()) {
+      await setPersistence(auth, browserLocalPersistence);
+      console.log('Persistencia local configurada correctamente');
+    } else {
+      await setPersistence(auth, inMemoryPersistence);
+      console.log('Persistencia en memoria configurada como fallback');
+    }
+  } catch (error) {
+    console.error('Error al configurar la persistencia:', error);
+    // Intentar fallback a persistencia en memoria
+    try {
+      await setPersistence(auth, inMemoryPersistence);
+      console.log('Fallback a persistencia en memoria configurado correctamente');
+    } catch (fallbackError) {
+      console.error('Error en fallback de persistencia:', fallbackError);
     }
   }
 };
 
-// Initialize persistence
-initAuth().catch(console.error);
-
-// Initialize Firestore with offline persistence
-const db = initializeFirestore(app, {
-  cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-  experimentalAutoDetectLongPolling: true,
-  cache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
+// Configurar persistencia inmediatamente
+configurePersistence().catch(error => {
+  console.error('Error en la configuración de persistencia:', error);
 });
 
-// Enable offline persistence
-enableMultiTabIndexedDbPersistence(db)
-  .then(() => {
-    console.log('Firestore offline persistence enabled');
-  })
-  .catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-    } else if (err.code === 'unimplemented') {
-      console.warn('The current browser does not support offline persistence');
-    } else {
-      console.error('Error enabling offline persistence:', err);
-    }
-  });
-
-// Initialize Google Auth Provider with custom parameters
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({
-  prompt: 'select_account',
-  // Agregar estos parámetros para manejar el error COOP
-  access_type: 'offline',
-  display: 'popup'
-});
-
-// Log initialization success
-console.info('Firebase initialized successfully');
-
-export { app, auth, db, googleProvider };
+export { app, auth, db };

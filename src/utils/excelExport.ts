@@ -1,56 +1,65 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
-export function exportToExcel(data: any[], filename: string = 'evaluacion_riesgos') {
+export async function exportToExcel(data: any[], filename = "evaluacion_riesgos") {
   if (!data || data.length === 0) return;
 
-  // Create worksheet
-  const ws = XLSX.utils.json_to_sheet(data);
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Evaluación de Riesgos');
 
-  // Set column widths (ajustar según el contenido)
-  const colWidths = Object.keys(data[0]).map(() => ({ wch: 30 }));
-  ws['!cols'] = colWidths;
+  // Obtener las cabeceras del primer objeto
+  const headers = Object.keys(data[0]);
+  worksheet.addRow(headers);
 
-  // Aplicar estilos
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-  for (let R = range.s.r; R <= range.e.r; R++) {
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-      if (!ws[cell_address]) continue;
+  // Agregar los datos
+  data.forEach(item => {
+    worksheet.addRow(Object.values(item));
+  });
 
-      // Estilo para encabezados
-      if (R === 0) {
-        ws[cell_address].s = {
-          font: { bold: true, color: { rgb: "FFFFFF" } },
-          fill: { fgColor: { rgb: "4F81BD" }, patternType: 'solid' },
-          alignment: { vertical: 'center', horizontal: 'center', wrapText: true },
-        };
-      }
-      // Estilo para datos
-      else {
-        ws[cell_address].s = {
-          font: { color: { rgb: "000000" } },
-          alignment: { vertical: 'center', horizontal: 'left', wrapText: true },
-          border: {
-            top: { style: 'thin' },
-            bottom: { style: 'thin' },
-            left: { style: 'thin' },
-            right: { style: 'thin' }
-          }
-        };
-      }
+  // Dar formato a las cabeceras
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: '4F81BD' }
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+  // Dar formato a los datos
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      row.font = { color: { argb: '000000' } };
+      row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      row.border = {
+        top: { style: 'thin' },
+        bottom: { style: 'thin' },
+        left: { style: 'thin' },
+        right: { style: 'thin' }
+      };
     }
-  }
+  });
 
-  // Ajustar altura de filas
-  ws['!rows'] = Array(range.e.r + 1).fill({ hpt: 30 });
-  ws['!rows'][0] = { hpt: 40 }; // Encabezado más alto
+  // Ajustar el ancho de las columnas
+  worksheet.columns.forEach((column, columnIndex) => {
+    column.width = 30;
+  });
 
-  // Crear workbook y agregar la hoja
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Evaluación de Riesgos');
+  // Ajustar la altura de las filas
+  worksheet.eachRow((row, rowNumber) => {
+    row.height = 30;
+  });
+  worksheet.getRow(1).height = 40;
 
-  // Generar archivo Excel
+  // Generar el archivo
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  
+  // Descargar el archivo
   const now = new Date();
   const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
-  XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
+  const link = document.createElement('a');
+  link.href = window.URL.createObjectURL(blob);
+  link.download = `${filename}_${timestamp}.xlsx`;
+  link.click();
+  window.URL.revokeObjectURL(link.href);
 }

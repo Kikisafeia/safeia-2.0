@@ -7,23 +7,66 @@
     scroll-behavior: smooth;
   }
 
-  /* Mejora el contraste y la legibilidad */
   body {
-    @apply text-gray-900 antialiased;
+    @apply text-gray-900 antialiased bg-safeia-bg min-h-screen;
   }
 
-  /* Mejora la visibilidad del foco para usuarios de teclado */
   :focus-visible {
     @apply outline-none ring-2 ring-safeia-yellow ring-offset-2;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-safeia-yellow text-white hover:bg-safeia-yellow-dark;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-safeia-black border-safeia-gray hover:bg-gray-50;
+  }
+
+  .heading-1 {
+    @apply text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-safeia-black;
+  }
+
+  .heading-2 {
+    @apply text-3xl font-bold tracking-tight text-safeia-black sm:text-4xl;
+  }
+
+  .heading-3 {
+    @apply text-xl font-semibold text-safeia-black;
+  }
+
+  .text-body {
+    @apply text-base text-safeia-gray;
+  }
+
+  .text-body-lg {
+    @apply text-lg sm:text-xl text-safeia-gray;
   }
 }
 
 @layer utilities {
   .bg-grid-pattern {
     background-image: 
-      linear-gradient(to right, #e5e7eb 1px, transparent 1px),
-      linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+      radial-gradient(circle at 1px 1px, #e5e7eb 1px, transparent 0);
     background-size: 24px 24px;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+  }
+
+  .shadow-hover {
+    @apply transition-shadow duration-300;
+  }
+  
+  .shadow-hover:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
   }
 
   /* Reduce el movimiento para usuarios que lo prefieren */

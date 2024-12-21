@@ -1,91 +1,130 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { db } from '../config/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { auth, db } from '../config/firebase';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
-interface UseTokensReturn {
-  checkTokens: (requiredTokens: number) => Promise<boolean>;
-  consumeTokens: (amount: number) => Promise<boolean>;
-  getTokenBalance: () => Promise<number>;
-  loading: boolean;
-  error: string | null;
-}
+// Constante para tokens iniciales (20,000 para plan gratuito)
+export const INITIAL_TOKENS = 20000;
 
-export const TOKEN_COSTS = {
-  DOCUMENT_GENERATION: 100,
-  CONTRACT_ANALYSIS: 200,
-  LEGAL_ASSISTANT: 50,
-  AGENT_CHAT: {
-    SHORT_QUERY: 25,    // Consultas cortas y simples
-    MEDIUM_QUERY: 50,   // Consultas que requieren análisis moderado
-    LONG_QUERY: 100,    // Consultas complejas o que requieren análisis extenso
-    DOCUMENT_REVIEW: 150 // Revisión de documentos
-  }
-} as const;
-
-export function useTokens(): UseTokensReturn {
-  const { currentUser } = useAuth();
-  const [loading, setLoading] = useState(false);
+export const useTokens = () => {
+  const [tokens, setTokens] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getTokenBalance = async (): Promise<number> => {
-    if (!currentUser) return 0;
+  const initializeUserTokens = async (uid: string) => {
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(userDocRef, {
+      tokens: INITIAL_TOKENS,
+      lastTokenUpdate: new Date().toISOString()
+    }, { merge: true });
+    return INITIAL_TOKENS;
+  };
 
-    try {
-      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-      if (userDoc.exists()) {
-        return userDoc.data().tokens || 0;
-      }
-      return 0;
-    } catch (err) {
-      console.error('Error al obtener balance de tokens:', err);
-      setError('Error al verificar tokens disponibles');
-      return 0;
+  const fetchTokens = async () => {
+    if (!auth.currentUser) {
+      setTokens(null);
+      setLoading(false);
+      return;
     }
-  };
-
-  const checkTokens = async (requiredTokens: number): Promise<boolean> => {
-    const balance = await getTokenBalance();
-    return balance >= requiredTokens;
-  };
-
-  const consumeTokens = async (amount: number): Promise<boolean> => {
-    if (!currentUser) return false;
-    setLoading(true);
-    setError(null);
 
     try {
-      const balance = await getTokenBalance();
-      if (balance < amount) {
-        setError('No hay suficientes tokens disponibles');
-        return false;
-      }
-
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        tokens: balance - amount,
-        tokenHistory: {
-          timestamp: new Date().toISOString(),
-          amount: -amount,
-          balance: balance - amount
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        const currentTokens = userDoc.data().tokens;
+        if (typeof currentTokens === 'number') {
+          setTokens(currentTokens);
+        } else {
+          // Si tokens no existe o no es un número, inicializar
+          const newTokens = await initializeUserTokens(auth.currentUser.uid);
+          setTokens(newTokens);
         }
-      });
-
-      return true;
+      } else {
+        // Si el documento no existe, crear uno nuevo
+        const newTokens = await initializeUserTokens(auth.currentUser.uid);
+        setTokens(newTokens);
+      }
     } catch (err) {
-      console.error('Error al consumir tokens:', err);
-      setError('Error al procesar tokens');
-      return false;
+      console.error('Error fetching tokens:', err);
+      setError('Error al obtener tokens');
     } finally {
       setLoading(false);
     }
   };
 
+  const checkTokens = async (amount: number): Promise<boolean> => {
+    if (!auth.currentUser) return false;
+    
+    try {
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      let currentTokens: number;
+      
+      if (userDoc.exists()) {
+        currentTokens = userDoc.data().tokens;
+        if (typeof currentTokens !== 'number') {
+          currentTokens = await initializeUserTokens(auth.currentUser.uid);
+        }
+      } else {
+        currentTokens = await initializeUserTokens(auth.currentUser.uid);
+      }
+      
+      return currentTokens >= amount;
+    } catch (err) {
+      console.error('Error checking tokens:', err);
+      return false;
+    }
+  };
+
+  const consumeTokens = async (amount: number): Promise<boolean> => {
+    if (!auth.currentUser) return false;
+
+    try {
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      let currentTokens: number;
+      
+      if (userDoc.exists()) {
+        currentTokens = userDoc.data().tokens;
+        if (typeof currentTokens !== 'number') {
+          currentTokens = await initializeUserTokens(auth.currentUser.uid);
+        }
+      } else {
+        currentTokens = await initializeUserTokens(auth.currentUser.uid);
+      }
+
+      if (currentTokens < amount) return false;
+
+      await updateDoc(userDocRef, {
+        tokens: currentTokens - amount,
+        lastTokenUpdate: new Date().toISOString()
+      });
+
+      setTokens(currentTokens - amount);
+      return true;
+    } catch (err) {
+      console.error('Error consuming tokens:', err);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchTokens();
+    const unsubscribe = auth.onAuthStateChanged(() => {
+      fetchTokens();
+    });
+    return () => unsubscribe();
+  }, []);
+
   return {
+    tokens,
+    loading,
+    error,
     checkTokens,
     consumeTokens,
-    getTokenBalance,
-    loading,
-    error
+    refreshTokens: fetchTokens,
+    getTokenBalance: fetchTokens
   };
-}
+};

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { getCurrentSeason, getCountryFromLatitude, getUVStatistics } from '../../data/uvStatistics';
+import { getCurrentSeason, getCountryFromLatitude, getUVStatistics } from '../data/uvStatistics';
 
 interface UVInfo {
   index: number;

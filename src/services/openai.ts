@@ -426,4 +426,61 @@ Responde en formato JSON con la siguiente estructura:
   }
 }
 
+export async function generateSuggestions(tema: string, industria: string) {
+  const response = await openai.chat.completions.create({
+    messages: [
+      {
+        role: "system",
+        content: "Eres un experto en seguridad y salud ocupacional. Genera sugerencias específicas y relevantes para una charla de seguridad."
+      },
+      {
+        role: "user",
+        content: `Genera 3 objetivos específicos y 3 riesgos específicos para una charla de seguridad sobre "${tema}" en la industria "${industria}". 
+        Formato JSON: {
+          "objetivos": string[],
+          "riesgos": string[]
+        }`
+      }
+    ],
+    model: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT,
+    temperature: 0.7,
+    response_format: { type: "json_object" }
+  });
+
+  return JSON.parse(response.choices[0].message.content || "{}");
+}
+
+export async function generateSafetyImage(tema: string, estilo: string) {
+  // Remover la doble barra y ajustar el endpoint correcto para Azure DALL-E
+  const baseUrl = import.meta.env.VITE_AZURE_DALLE_ENDPOINT.replace(/\/$/, '');
+  const endpoint = `${baseUrl}/openai/deployments/${import.meta.env.VITE_AZURE_DALLE_DEPLOYMENT}/images/generations?api-version=${import.meta.env.VITE_AZURE_DALLE_API_VERSION}`;
+  
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': import.meta.env.VITE_AZURE_DALLE_API_KEY
+    },
+    body: JSON.stringify({
+      prompt: `Crea una imagen profesional y segura que represente una charla de seguridad sobre "${tema}". 
+      La imagen debe ser en estilo ${estilo}, apropiada para un ambiente laboral, 
+      mostrando buenas prácticas de seguridad y elementos de protección personal relevantes.
+      NO incluyas texto ni palabras en la imagen.`,
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+      style: "natural"
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: { message: 'Error desconocido' } }));
+    console.error('Error completo:', error);
+    throw new Error(`Error al generar la imagen: ${error.error?.message || 'Error desconocido'}`);
+  }
+
+  const data = await response.json();
+  return data.data[0].url;
+}
+
 export { openai };

@@ -18,9 +18,9 @@ export interface AgentRequest {
 }
 
 export interface AgentResponse {
-  text: string;
-  conversationId?: string;
-  messageId?: string;
+  id: string;
+  content: string;
+  conversation_id?: string;
   files?: Array<{
     url: string;
     name: string;
@@ -36,4 +36,14 @@ export interface MessageFile {
   name?: string;
   type?: string;
   mime_type?: string;
+}
+
+export interface FileUploadResponse {
+  id: string;           // UUID del archivo
+  name: string;         // Nombre del archivo
+  size: number;         // Tamaño en bytes
+  extension: string;    // Extensión del archivo
+  mime_type: string;    // Tipo MIME
+  created_by: string;   // ID del usuario final
+  created_at: number;   // Timestamp de creación
 }

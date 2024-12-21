@@ -1,133 +1,173 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight, Shield, Cloud, Lock } from 'lucide-react';
-import AnimatedText from './AnimatedText';
+import { motion, useAnimation } from 'framer-motion';
+import { ArrowRight, FileText, Globe, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from "react";
+import AnimatedText from './AnimatedText';
+import CommunitySection from './CommunitySection';
 
-export default function Hero() {
+const testimonials = [
+  {
+    quote: "SAFEIA ha sido una herramienta increíble para nuestra empresa. Nos ha permitido crear documentos de prevención de riesgos laborales personalizados en cuestión de minutos, ahorrando tiempo y recursos. Además, nos ha ayudado a garantizar el cumplimiento de nuestras políticas de seguridad.",
+    author: "Rodrigo Norambuena",
+    position: "APR Construccion",
+    rating: 4
+  },
+  {
+    quote: "Como pequeña empresa, no teníamos mucho tiempo ni recursos para dedicar a la creación de documentos de prevención de riesgos laborales. SAFEIA nos ha ayudado a hacer este proceso mucho más eficiente y efectivo.",
+    author: "Gerente Producción",
+    position: "",
+    rating: 4
+  },
+  {
+    quote: "Como auditor líder de seguridad en ISO 45001, siempre estoy buscando herramientas que puedan ayudar a mis clientes a mejorar sus sistemas de gestión de seguridad y salud en el trabajo.",
+    author: "Auditor Lider ISO",
+    position: "",
+    rating: 4
+  }
+];
+
+const services = [
+  {
+    icon: FileText,
+    title: "Creación de Documentos",
+    description: "SAFEIA utiliza inteligencia artificial para hacer que la creación de documentos de prevención de riesgos sea más rápida y precisa que nunca."
+  },
+  {
+    icon: Globe,
+    title: "Acceso basado en la nube",
+    description: "Accede desde cualquier lugar y en cualquier momento. Una vez que hayas iniciado sesión, la herramienta te guiará a través de un sencillo proceso."
+  },
+  {
+    icon: Users,
+    title: "Asistentes Especializados",
+    description: "Asistentes virtuales diseñados para agilizar tus procesos de prevención de riesgos, brindándote respuestas precisas y soluciones eficientes."
+  }
+];
+
+const Hero = () => {
   const navigate = useNavigate();
+  const controls = useAnimation();
 
-  const handleStartTrial = () => {
-    navigate('/login');
-  };
+  useEffect(() => {
+    controls.start({ opacity: 1, y: 0 });
+  }, [controls]);
 
   return (
-    <div className="relative min-h-screen pt-16 bg-gradient-to-br from-gray-50 to-safeia-yellow/10 overflow-hidden">
-      <div className="absolute inset-0 bg-grid-pattern opacity-5" aria-hidden="true"></div>
+    <div className="relative overflow-hidden bg-safeia-bg">
+      {/* Fondo con patrón de puntos */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
       
-      {/* Animated background elements */}
-      <motion.div 
-        className="absolute inset-0 pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1 }}
-      >
-        {[...Array(20)].map((_, i) => (
+      {/* Contenido principal */}
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-20">
+        <div className="text-center">
           <motion.div
-            key={i}
-            className="absolute w-2 h-2 bg-safeia-yellow rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              scale: [1, 1.5, 1],
-              opacity: [0.3, 0.8, 0.3],
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              delay: i * 0.2,
-            }}
-          />
-        ))}
-      </motion.div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32">
-        <div className="text-center relative z-10">
-          <AnimatedText
-            text={["Innovación y Seguridad:", "La pareja perfecta con SAFEIA"]}
-            className="text-4xl sm:text-5xl md:text-6xl font-black text-safeia-black mb-6 leading-tight tracking-wide"
-            delay={0.5}
-          />
-          
+            initial={{ opacity: 0, y: 20 }}
+            animate={controls}
+            transition={{ duration: 0.6 }}
+          >
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-safeia-black">
+              Innovación y Seguridad:
+              <br />
+              <span className="block mt-2">
+                La pareja perfecta con{' '}
+                <span className="text-safeia-yellow">SAFEIA</span>
+              </span>
+            </h1>
+          </motion.div>
+
           <motion.p
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1, duration: 0.8 }}
-            className="text-lg sm:text-xl text-gray-600 mb-8 max-w-2xl mx-auto"
+            animate={controls}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mx-auto mt-6 max-w-2xl text-lg sm:text-xl text-safeia-gray"
           >
-            Inteligencia Artificial para una Gestión Segura y Eficiente. Transforma tu flujo de trabajo de evaluación de riesgos con tecnología de IA de vanguardia.
+            Inteligencia Artificial para una Gestión Segura y Eficiente. Transforma tu flujo
+            de trabajo de evaluación de riesgos con tecnología de IA de vanguardia.
           </motion.p>
 
-          <motion.button 
-            onClick={handleStartTrial}
-            className="bg-safeia-black text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-lg font-semibold hover:bg-safeia-yellow hover:text-safeia-black transition duration-300 group focus:outline-none focus:ring-2 focus:ring-safeia-yellow relative overflow-hidden"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.5 }}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={controls}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-10 flex justify-center gap-4"
           >
-            <span className="relative z-10">
-              Comienza tu Prueba Gratuita
-              <ArrowRight className="inline ml-2 group-hover:translate-x-1 transition" aria-hidden="true" />
-            </span>
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-safeia-yellow/0 via-safeia-yellow/30 to-safeia-yellow/0"
-              animate={{
-                x: ['100%', '-100%'],
-              }}
-              transition={{
-                repeat: Infinity,
-                duration: 2,
-                ease: 'linear',
-              }}
-            />
-          </motion.button>
-        </div>
-
-        <motion.div 
-          className="mt-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 2, duration: 0.8 }}
-        >
-          {[
-            {
-              Icon: Shield,
-              title: "Seguridad Avanzada",
-              description: "Seguridad empresarial con detección de amenazas impulsada por IA."
-            },
-            {
-              Icon: Cloud,
-              title: "Acceso en la Nube",
-              description: "Accede a tus herramientas de prevención desde cualquier lugar."
-            },
-            {
-              Icon: Lock,
-              title: "Cumplimiento Normativo",
-              description: "Mantén el cumplimiento con las regulaciones del sector."
-            }
-          ].map((feature, index) => (
-            <motion.div 
-              key={index}
-              className="bg-white/80 backdrop-blur rounded-xl p-6 shadow-lg hover:shadow-xl transition group focus-within:ring-2 focus-within:ring-safeia-yellow"
-              whileHover={{ y: -5 }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2 + index * 0.2 }}
+            <button
+              onClick={() => navigate('/login')}
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-safeia-yellow hover:bg-safeia-yellow-dark transition-colors duration-200"
             >
-              <feature.Icon 
-                className="h-12 w-12 text-safeia-black group-hover:text-safeia-yellow transition-colors mb-4" 
-                aria-hidden="true"
-              />
-              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
-            </motion.div>
-          ))}
-        </motion.div>
+              Comienza tu Prueba Gratuita
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </button>
+          </motion.div>
+        </div>
       </div>
+
+      {/* Services Section */}
+      <div className="bg-white py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-safeia-black sm:text-4xl">
+              Nuestros Servicios
+            </h2>
+            <p className="mt-4 text-lg text-safeia-gray">
+              Descubre cómo SAFEIA puede ayudarte a mejorar la seguridad en tu empresa
+            </p>
+          </div>
+          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {services.map((service, index) => (
+              <motion.div
+                key={service.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={controls}
+                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+                className="relative rounded-2xl border border-gray-200 p-8 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="text-safeia-yellow mb-4">
+                  <service.icon className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-semibold text-safeia-black">{service.title}</h3>
+                <p className="mt-4 text-base text-safeia-gray">{service.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Testimonials Section */}
+      <section className="bg-gray-50 py-12 sm:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-safeia-black sm:text-4xl">
+              Lo que dicen nuestros clientes
+            </h2>
+          </div>
+          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={controls}
+                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+                className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <p className="text-lg text-safeia-gray">{testimonial.quote}</p>
+                <div className="mt-6">
+                  <h3 className="font-semibold text-safeia-black">{testimonial.author}</h3>
+                  {testimonial.position && (
+                    <p className="text-sm text-safeia-gray">{testimonial.position}</p>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Community Section */}
+      <CommunitySection />
     </div>
   );
-}
+};
+
+export default Hero;

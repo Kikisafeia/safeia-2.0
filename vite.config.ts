@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true,
+    strictPort: true, 
+    open: '/',
     proxy: {
       '/api/dify': {
         target: 'https://api.dify.ai/v1',
@@ -16,11 +17,27 @@ export default defineConfig({
           'Origin': 'https://api.dify.ai'
         }
       },
-      '/api': {
-        target: 'http://localhost:3001',
+      '/__/auth/handler': {
+        target: 'https://safeia-2.firebaseapp.com',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        headers: {
+          'Origin': 'https://safeia-2.firebaseapp.com'
+        }
+      },
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
+    },
+    cors: {
+      origin: [
+        'https://safeia-2.firebaseapp.com',
+        'https://safeia-2.web.app',
+        'http://localhost:3000'
+      ],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      credentials: true
     }
   },
   resolve: {
