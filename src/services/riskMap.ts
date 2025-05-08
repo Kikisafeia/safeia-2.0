@@ -294,7 +294,7 @@ function extractRiskPoints(analysisText: string): RiskPoint[] {
     let coordinates = { x: 0, y: 0 };
     let severity: RiskSeverity = 'medio';
     let category: RiskCategory = 'otros';
-    let recommendations: string[] = [];
+    const recommendations: string[] = [];
 
     lines.forEach(line => {
       const trimmedLine = line.trim().toLowerCase();

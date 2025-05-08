@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import EmailAuthForm from './EmailAuthForm';
@@ -9,35 +9,17 @@ import {
   getRedirectResult,
   browserPopupRedirectResolver,
   browserLocalPersistence,
-  inMemoryPersistence,
+  // inMemoryPersistence, // Removed unused import
   setPersistence
 } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { getAuthErrorMessage } from '../../utils/errorMessages';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+interface AuthComponentProps {
+  type: 'login' | 'register';
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`auth-tabpanel-${index}`}
-      aria-labelledby={`auth-tab-${index}`}
-      {...other}
-    >
-      {value === index && <div>{children}</div>}
-    </div>
-  );
-}
-
-const AuthComponent = () => {
+const AuthComponent = ({ type }: AuthComponentProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -46,10 +28,22 @@ const AuthComponent = () => {
 
   useEffect(() => {
     if (currentUser) {
-      console.log('Usuario autenticado, redirigiendo desde AuthComponent');
-      navigate('/herramientas-sst', { replace: true });
+      console.log('Usuario autenticado, redirigiendo desde AuthComponent via useEffect...');
+      
+      const redirectPath = sessionStorage.getItem('redirectPath');
+      // Default to '/herramientas-sst' if redirectPath is null, undefined, 
+      // or points back to the current auth page (location.pathname).
+      const targetPath = (redirectPath && redirectPath !== location.pathname) ? redirectPath : '/herramientas-sst'; 
+      
+      console.log(`useEffect redirect: Path desde storage: ${redirectPath}, Path actual: ${location.pathname}, Target path: ${targetPath}`);
+      navigate(targetPath, { replace: true });
+      
+      // Limpiar la ruta almacenada después de usarla.
+      if (redirectPath) {
+          sessionStorage.removeItem('redirectPath');
+      }
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, location.pathname]); // Added location.pathname to dependencies
 
   const handleError = (error: any) => {
     console.error('Error en autenticación:', error);
@@ -91,21 +85,21 @@ const AuthComponent = () => {
       const shouldUsePopup = isChrome && chromeVersion >= 115;
 
       if (shouldUsePopup) {
-        console.log('Usando popup para Chrome 115+ o superior');
+        console.log('Usando popup para Chrome 115+ o superior (con persistencia local)');
         try {
-          // Cambiar a persistencia en memoria para evitar problemas con cookies
-          await setPersistence(auth, inMemoryPersistence);
+          // No cambiar persistencia aquí, usar la configurada por defecto (local)
+          // await setPersistence(auth, inMemoryPersistence); 
           const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
           
           if (result.user) {
             console.log('Login con popup exitoso:', result.user.email);
-            // Restaurar persistencia local después del login exitoso
-            try {
-              await setPersistence(auth, browserLocalPersistence);
-            } catch (persistenceError) {
-              console.warn('No se pudo restaurar persistencia local:', persistenceError);
-            }
-            handlePostLoginRedirect();
+            // No es necesario restaurar persistencia si no se cambió
+            // try {
+            //   await setPersistence(auth, browserLocalPersistence);
+            // } catch (persistenceError) {
+            //   console.warn('No se pudo restaurar persistencia local:', persistenceError);
+            // }
+            // handlePostLoginRedirect(); // Rely on useEffect watching currentUser
           }
         } catch (popupError: any) {
           console.error('Error en popup:', popupError);
@@ -125,7 +119,7 @@ const AuthComponent = () => {
           const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
           if (result.user) {
             console.log('Login con popup fallback exitoso:', result.user.email);
-            handlePostLoginRedirect();
+            // handlePostLoginRedirect(); // Rely on useEffect watching currentUser
           }
         }
       }
@@ -138,24 +132,18 @@ const AuthComponent = () => {
     }
   };
 
-  const handlePostLoginRedirect = () => {
-    const redirectPath = sessionStorage.getItem('redirectPath');
-    if (redirectPath) {
-      navigate(redirectPath, { replace: true });
-    } else {
-      navigate('/herramientas-sst', { replace: true });
-    }
-  };
-
   // Manejar el resultado de la redirección al cargar
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
         console.log('Verificando resultado de redirección...');
         const result = await getRedirectResult(auth, browserPopupRedirectResolver);
+        
         if (result?.user) {
           console.log('Usuario autenticado exitosamente por redirección:', result.user.email);
-          handlePostLoginRedirect();
+          // Forzar persistencia local para mantener la sesión
+          await setPersistence(auth, browserLocalPersistence);
+          // await handlePostLoginRedirect(); // Rely on useEffect watching currentUser
         } else {
           console.log('No hay resultado de redirección pendiente');
         }
@@ -163,10 +151,21 @@ const AuthComponent = () => {
         console.error('Error al procesar resultado de redirección:', error);
         setError(getAuthErrorMessage(error));
         setTimeout(() => setError(null), 5000);
+        
+        // Intentar redirección de todos modos como fallback
+        if (auth.currentUser) {
+          // Navigation will be handled by the main useEffect watching currentUser
+          // await handlePostLoginRedirect(); 
+        }
       }
     };
 
-    handleRedirectResult();
+    // Agregar pequeño delay para asegurar que Firebase complete el flujo
+    const timer = setTimeout(() => {
+      handleRedirectResult();
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   if (currentUser) {
@@ -182,7 +181,7 @@ const AuthComponent = () => {
           alt="SAFEIA"
         />
         <h2 className="mt-6 text-center text-3xl font-extrabold text-safeia-black">
-          Iniciar sesión
+          {type === 'login' ? 'Iniciar sesión' : 'Registrarse'}
         </h2>
       </div>
 

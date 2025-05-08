@@ -1,4 +1,4 @@
-import { openai } from './openai';
+import { fetchChatCompletions } from './aiService'; // Import the proxy helper
 
 export interface LegalRequirement {
   id: string;
@@ -16,7 +16,7 @@ export interface LegalRequirement {
 }
 
 export interface LegalResponse {
-  content: string;
+  content: string; // This will be generated markdown
   requirements: LegalRequirement[];
   summary: {
     totalRequirements: number;
@@ -30,21 +30,23 @@ export interface LegalResponse {
   };
 }
 
+// Consider moving this type to a shared types file if used elsewhere
 export type Country = 'CL' | 'PE' | 'CO' | 'MX' | 'AR' | 'BR' | 'ES' | 'PT' | 'UY' | 'PY' | 'BO' | 'EC' | 'VE' | 'CR' | 'PA' | 'DO' | 'GT' | 'SV' | 'HN' | 'NI';
 
 export async function generateLegalRequirements(
   companyName: string,
   industry: string,
   location: string,
-  country: Country, // Now using Country type
+  country: Country,
   scope: string,
   activities: string
 ): Promise<LegalResponse> {
   const supportedCountries: Country[] = ['CL', 'PE', 'CO', 'MX', 'AR', 'BR', 'ES', 'PT', 'UY', 'PY', 'BO', 'EC', 'VE', 'CR', 'PA', 'DO', 'GT', 'SV', 'HN', 'NI'];
-  
+
   if (!supportedCountries.includes(country)) {
     throw new Error(`País no soportado: ${country}. Los países soportados son: ${supportedCountries.join(', ')}`);
   }
+
   const prompt = `Genera un análisis detallado de requisitos legales en seguridad y salud en el trabajo para:
 Empresa: ${companyName}
 Sector Industrial: ${industry}
@@ -86,96 +88,101 @@ DEBES responder EXCLUSIVAMENTE en formato JSON con la siguiente estructura exact
 NO incluyas ningún texto adicional fuera del JSON. El JSON DEBE ser válido y contener todos los campos especificados.`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "gpt-4",
-      temperature: 0.7,
-      max_tokens: 2500,
-    });
+    const payload = {
+       messages: [{ role: "user" as const, content: prompt }],
+       // model: "gpt-4", // Model/deployment handled by proxy
+       temperature: 0.7,
+       max_tokens: 2500,
+       response_format: { type: "json_object" } // Request JSON
+    };
 
-    const response = completion.choices[0].message.content;
-    if (!response) throw new Error('No se recibió respuesta del servicio');
+    const data = await fetchChatCompletions(payload); // Call via proxy
 
-    // Improved JSON extraction with multiple fallbacks
-    let jsonString = response;
-    
-    // Try extracting from markdown code blocks
-    const jsonMatch = response.match(/```(?:json)?\n([\s\S]*?)\n```/);
-    if (jsonMatch && jsonMatch[1]) {
-      jsonString = jsonMatch[1];
-    } 
-    // Try extracting raw JSON if no code blocks
-    else if (response.trim().startsWith('{') && response.trim().endsWith('}')) {
-      jsonString = response.trim();
-    } 
-    // Try finding first JSON object in text
-    else {
-      const jsonStart = response.indexOf('{');
-      const jsonEnd = response.lastIndexOf('}');
-      if (jsonStart >= 0 && jsonEnd > jsonStart) {
-        jsonString = response.slice(jsonStart, jsonEnd + 1);
-      }
-    }
+    // Process the response data
+    let legalData: Omit<LegalResponse, 'content'>; // Type for the JSON part
 
-    // Parse and validate the JSON response
-    let legalData: LegalResponse;
-    try {
-      legalData = JSON.parse(jsonString) as LegalResponse;
-      
-      // Validate required structure
-      if (!legalData?.requirements || !Array.isArray(legalData.requirements)) {
-        throw new Error('La respuesta no contiene la lista de requisitos');
-      }
-      if (!legalData?.summary || typeof legalData.summary !== 'object') {
-        throw new Error('La respuesta no contiene el resumen de cumplimiento');
-      }
-      
-      // Validate each requirement
-      for (const req of legalData.requirements) {
-        if (!req.id || !req.title || !req.category) {
-          throw new Error('Faltan campos requeridos en los requisitos legales');
+    if (data && data.requirements && data.summary) {
+        // Assuming proxy returns the parsed JSON content directly
+        legalData = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        // Fallback if proxy returns the full Azure object
+        const responseContent = data.choices[0].message.content;
+        if (!responseContent) throw new Error('No se recibió contenido del servicio de IA');
+
+        // Use robust JSON extraction logic
+        let jsonString = responseContent;
+        const jsonMatch = responseContent.match(/```(?:json)?\n([\s\S]*?)\n```/);
+        if (jsonMatch && jsonMatch[1]) {
+          jsonString = jsonMatch[1];
+        } else if (responseContent.trim().startsWith('{') && responseContent.trim().endsWith('}')) {
+          jsonString = responseContent.trim();
+        } else {
+          const jsonStart = responseContent.indexOf('{');
+          const jsonEnd = responseContent.lastIndexOf('}');
+          if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            jsonString = responseContent.slice(jsonStart, jsonEnd + 1);
+          } else {
+             throw new Error('No se pudo extraer JSON válido de la respuesta del servicio de IA');
+          }
         }
+
+        try {
+            legalData = JSON.parse(jsonString);
+        } catch (err) {
+             console.error('Error parsing JSON from fallback:', err);
+             console.error('Original response content:', responseContent);
+             console.error('Attempted JSON string:', jsonString);
+             throw new Error(`Error al procesar la respuesta: ${err instanceof Error ? err.message : 'Formato inválido'}`);
+        }
+    } else {
+         throw new Error("Respuesta inesperada del servicio de IA para requisitos legales.");
+    }
+
+    // Validate the structure of the parsed data
+    if (!legalData?.requirements || !Array.isArray(legalData.requirements)) {
+      throw new Error('La respuesta no contiene la lista de requisitos');
+    }
+    if (!legalData?.summary || typeof legalData.summary !== 'object') {
+      throw new Error('La respuesta no contiene el resumen de cumplimiento');
+    }
+    for (const req of legalData.requirements) {
+      if (req.id === undefined || req.title === undefined || req.category === undefined) {
+        console.error("Requisito legal inválido:", req);
+        throw new Error('Faltan campos requeridos en los requisitos legales');
       }
-      
-    } catch (err) {
-      console.error('Error parsing JSON:', err);
-      console.error('Original response:', response);
-      console.error('Extracted JSON:', jsonString);
-      throw new Error(`Error al procesar la respuesta: ${err instanceof Error ? err.message : 'Formato inválido'}`);
     }
 
-    // Validate required fields
-    if (!legalData.requirements || !legalData.summary) {
-      throw new Error('La respuesta del servicio no contiene la estructura esperada');
-    }
-
-    // Generate the markdown content
+    // Generate the markdown content using the validated data
     const markdownContent = generateMarkdownReport(legalData, {
       companyName,
       industry,
       location,
-      country, // Pass country to markdown generator
+      country,
       scope,
       activities,
     });
 
+    // Combine JSON data and markdown content for the final response
     return {
       ...legalData,
       content: markdownContent,
     };
+
   } catch (error) {
     console.error('Error generating legal requirements:', error);
-    throw new Error('Error al generar los requisitos legales');
+    // Throw a more specific error if possible, otherwise a generic one
+    throw new Error(`Error al generar los requisitos legales: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }
 
+// Helper function to generate Markdown report (remains the same)
 function generateMarkdownReport(
-  legalData: LegalResponse,
+  legalData: Omit<LegalResponse, 'content'>, // Use the JSON part type
   metadata: {
     companyName: string;
     industry: string;
     location: string;
-    country: string; // Added country to metadata type
+    country: string;
     scope: string;
     activities: string;
   }
@@ -184,7 +191,7 @@ function generateMarkdownReport(
     companyName,
     industry,
     location,
-    country, // Destructure country
+    country,
     scope,
     activities,
   } = metadata;
@@ -208,7 +215,7 @@ function generateMarkdownReport(
 - **Empresa:** ${companyName}
 - **Sector Industrial:** ${industry}
 - **Ubicación:** ${location}
-- **País:** ${country} // Display country
+- **País:** ${country}
 - **Alcance:** ${scope}
 - **Actividades Principales:** ${activities}
 

@@ -14,6 +14,7 @@
 - **Firebase**: Autenticación, Firestore, Storage.
 - **Express-rate-limit**: Protección contra abuso de endpoints.
 - **OpenAI / Azure OpenAI**: Integración de IA para generación de contenido.
+- **Brave Search (MCP)**: Búsqueda de información legal y normativa en SST.
 - **PayPal**: Procesamiento de pagos y suscripciones.
 
 ## Utilidades y Seguridad

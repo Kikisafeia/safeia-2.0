@@ -1,18 +1,48 @@
-import { generateImage } from './azureOpenAI';
+import { generateImage, fetchChatCompletions } from './aiService';
 
-interface InvestigationResponse {
-  content: string;
-  images: {
-    section: string;
-    url: string;
-  }[];
-  sections: {
-    title: string;
-    content: string;
-    imageUrl?: string;
-  }[];
+// --- Interfaces ---
+// Updated Section to be more generic or potentially removed if JSON is directly used
+interface Section {
+  title: string;
+  content: string; // Could be string or structured data depending on final use
+  imageUrl?: string;
 }
 
+// Updated InvestigationResponse to reflect structured data possibility
+// Removed 'content' as primary markdown is replaced by structured sections
+interface InvestigationResponse {
+  images: {
+    section: string; // e.g., 'Diagrama', 'EPP', 'Señalización'
+    url: string;
+  }[];
+  // Sections derived from the structured JSON response
+  sections: Section[];
+  // Optionally include the raw structured data from AI
+  structuredData?: InvestigationAIResponse;
+}
+
+// Interface representing the expected JSON structure from the AI
+interface InvestigationAIResponse {
+  datosIncidente: {
+    tipo: string;
+    fecha: string;
+    lugar: string;
+    testigos: string;
+  };
+  descripcionDetallada: string;
+  consecuencias: string;
+  analisisCausas: {
+    inmediatas: string[];
+    basicas: string[];
+    raiz: string[];
+  };
+  recomendaciones: string[];
+}
+
+// --- Helper Functions ---
+// Removed parseMarkdownSections as it's no longer needed
+
+// --- Main Service Function ---
 export async function generateInvestigation(
   incident: string,
   date: string,
@@ -21,99 +51,135 @@ export async function generateInvestigation(
   consequences: string,
   witnesses: string
 ): Promise<InvestigationResponse> {
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
-  const prompt = `
-    Como experto en seguridad industrial, genera un informe detallado de investigación de accidente con los siguientes datos:
+  // Updated prompt to request JSON output
+  const prompt = `Como experto en seguridad industrial, genera un informe detallado de investigación de accidente usando el método de Árbol de Causas con estos datos. Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni formato markdown, siguiendo la estructura especificada.
 
-    Tipo de Incidente: ${incident}
-    Fecha: ${date}
-    Lugar: ${location}
-    Descripción: ${description}
-    Consecuencias: ${consequences}
-    Testigos: ${witnesses}
+  Datos del Incidente a analizar:
+  - Tipo: ${incident}
+  - Fecha: ${date}
+  - Lugar: ${location}
+  - Testigos: ${witnesses || "No reportados"}
+  - Descripción Detallada: ${description}
+  - Consecuencias: ${consequences}
 
-    El informe debe incluir:
-    1. Resumen del Incidente
-    2. Análisis de Causas Inmediatas
-    3. Análisis de Causas Básicas
-    4. Análisis de Causas Raíz
-    5. Evaluación de Controles Existentes
-    6. Recomendaciones y Medidas Preventivas
-    7. Plan de Acción
-    8. Conclusiones
+  Estructura JSON requerida:
+  {
+    "datosIncidente": {
+      "tipo": "${incident}",
+      "fecha": "${date}",
+      "lugar": "${location}",
+      "testigos": "${witnesses || "No reportados"}"
+    },
+    "descripcionDetallada": "${description.replace(/"/g, '\\"')}", // Escape quotes in description
+    "consecuencias": "${consequences.replace(/"/g, '\\"')}", // Escape quotes
+    "analisisCausas": {
+      "inmediatas": ["Causa inmediata 1", "Causa inmediata 2", "..."],
+      "basicas": ["Causa básica 1", "Causa básica 2", "..."],
+      "raiz": ["Causa raíz 1", "Causa raíz 2", "..."]
+    },
+    "recomendaciones": ["Recomendación correctiva/preventiva 1", "Recomendación 2", "..."]
+  }
 
-    Responde en formato markdown con títulos, subtítulos y listas donde sea apropiado.
-    Incluye una descripción detallada para generar una imagen representativa del incidente que ayude a comprender mejor lo ocurrido.
-  `;
+  Instrucciones para el análisis de causas:
+  - Identifica las causas inmediatas (actos y condiciones inseguras directas).
+  - Identifica las causas básicas (factores personales y de trabajo subyacentes).
+  - Identifica las causas raíz (fallos fundamentales del sistema de gestión).
+  - Asegúrate de que las listas de causas y recomendaciones sean detalladas y específicas.`;
 
   try {
-    const response = await fetch(
-      `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api-key': apiKey,
+    const payload = {
+      messages: [
+        {
+          role: 'system' as const,
+          content: 'Eres un experto en seguridad industrial especializado en análisis de accidentes laborales usando metodologías como Árbol de Causas. Responde siempre ÚNICAMENTE con el objeto JSON solicitado.'
         },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'system',
-              content: 'Eres un experto en seguridad industrial y análisis de accidentes laborales.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 2000,
-          top_p: 0.95,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          stop: null,
-        }),
-      }
-    );
+        {
+          role: 'user' as const,
+          content: prompt
+        }
+      ],
+      temperature: 0.5, // Slightly lower temp for more predictable JSON
+      max_tokens: 2500,
+      response_format: { type: "json_object" } // Explicitly request JSON
+    };
 
-    if (!response.ok) {
-      throw new Error('Error en la API de Azure OpenAI');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+
+    // Process the structured JSON response
+    let structuredData: InvestigationAIResponse;
+    if (data && data.analisisCausas) {
+        // Assuming proxy returns the parsed JSON content directly
+        structuredData = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        // Fallback if proxy returns the full Azure object
+        const responseContent = data.choices[0].message.content;
+        if (!responseContent) throw new Error('No se recibió contenido JSON del servicio de IA');
+        try {
+            // Attempt to parse, assuming it might still have ```json wrapper if AI ignored format instruction
+             const cleanContent = responseContent
+                .replace(/```json\n?/g, '')
+                .replace(/```\n?/g, '')
+                .trim();
+            structuredData = JSON.parse(cleanContent);
+        } catch (parseError) {
+            console.error('Error al parsear JSON en generateInvestigation fallback:', parseError);
+            console.log('Contenido recibido:', responseContent);
+            throw new Error('No se pudo procesar la respuesta JSON del servicio de IA');
+        }
+    } else {
+        throw new Error("Respuesta inesperada del servicio de IA para generateInvestigation.");
     }
 
-    const data = await response.json();
-    const content = data.choices[0].message.content;
+    // Basic validation of the received structure
+     if (!structuredData?.datosIncidente || !structuredData?.analisisCausas?.inmediatas || !structuredData?.recomendaciones) {
+         console.error("Estructura JSON inválida recibida:", structuredData);
+         throw new Error('La respuesta JSON de IA no tiene la estructura esperada.');
+     }
 
-    // Extraer la descripción para la imagen del contenido
-    const imagePrompt = `Genera una imagen profesional y clara que represente un accidente laboral de tipo: ${incident}. 
-    La imagen debe mostrar el escenario ${location} y las circunstancias del accidente de manera educativa y profesional, 
-    sin mostrar lesiones graves o sangre. Incluye elementos de seguridad y señalización relevantes.`;
 
-    // Generar imagen para el incidente
-    const imageUrl = await generateImage(imagePrompt);
+    // --- Generate Images (remains the same for now) ---
+    const images: string[] = await Promise.all([
+      generateImage(`Diagrama de Árbol de Causas para incidente ${incident} en ${location}`),
+      generateImage(`Equipos de protección personal recomendados para prevenir ${incident}`),
+      generateImage(`Señalización de seguridad relevante para ${incident}`)
+    ]);
 
-    // Crear las secciones con la imagen
-    const sections = [
-      {
-        title: "Resumen del Incidente",
-        content: content,
-        imageUrl: imageUrl
-      }
-    ];
+    // --- Create sections array from structured data ---
+    const sections: Section[] = [];
+    sections.push({ title: "Datos del Incidente", content: JSON.stringify(structuredData.datosIncidente, null, 2) }); // Example: stringify object for display
+    sections.push({ title: "Descripción Detallada", content: structuredData.descripcionDetallada });
+    sections.push({ title: "Consecuencias", content: structuredData.consecuencias });
+    sections.push({
+        title: "Análisis de Causas",
+        content: `**Inmediatas:**\n- ${structuredData.analisisCausas.inmediatas.join('\n- ')}\n\n**Básicas:**\n- ${structuredData.analisisCausas.basicas.join('\n- ')}\n\n**Raíz:**\n- ${structuredData.analisisCausas.raiz.join('\n- ')}`,
+        imageUrl: images[0] || undefined // Assign Diagram image here
+    });
+     sections.push({
+        title: "Recomendaciones",
+        content: `- ${structuredData.recomendaciones.join('\n- ')}`,
+        imageUrl: images[1] || undefined // Assign EPP image here (example)
+     });
+     // Note: The 3rd image (Signage) isn't explicitly assigned to a section here.
 
-    return {
-      content,
-      images: [{
-        section: "Resumen del Incidente",
-        url: imageUrl
-      }],
-      sections
+    const result: InvestigationResponse = {
+      images: images.map((url, i) => ({
+        section: i === 0 ? 'Diagrama' : i === 1 ? 'EPP' : 'Señalización',
+        url
+      })),
+      sections: sections,
+      structuredData: structuredData // Include the raw structured data if needed by UI
     };
+
+    return result;
+
   } catch (error) {
-    console.error('Error completo:', error);
-    throw error;
+    console.error('Error en generateInvestigation:', {
+      error: error instanceof Error ? error.message : error,
+      incident,
+      location
+    });
+    // Throw more specific error if possible
+    throw new Error(`Error al generar el informe de investigación: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }

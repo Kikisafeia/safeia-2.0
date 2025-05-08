@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
+import NetworkStatus from './components/NetworkStatus'
+// AuthProvider is now only in main.tsx
 import Hero from './components/Hero'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -20,7 +21,7 @@ import RiskMatrix from './pages/RiskMatrix'
 import RiskMap from './pages/RiskMap'
 import PTS from './pages/PTS'
 import ATS from './pages/ATS'
-import Checklist from './pages/Checklist'
+import CheckList from './pages/CheckList'
 import InspeccionesGenerator from './pages/InspeccionesGenerator'
 import Investigation from './pages/Investigation'
 import CharlaSeguridadGenerator from './pages/CharlaSeguridadGenerator'
@@ -32,11 +33,21 @@ import Recomendaciones from './pages/Recomendaciones'
 import Audit from './pages/Audit'
 import Politicas from './pages/Politicas'
 import Legal from './pages/Legal'
+import LoadingSpinner from './components/LoadingSpinner'; // Import LoadingSpinner
 
 // Componente para manejar rutas públicas
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, initialLoading } = useAuth(); // Add initialLoading check
   
+  if (initialLoading) {
+    // Render loading indicator while checking auth state
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   if (currentUser) {
     console.log('Usuario autenticado intentando acceder a ruta pública, redirigiendo...');
     return <Navigate to="/herramientas-sst" replace />;
@@ -48,10 +59,11 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Ruta principal - Landing Page */}
-          <Route path="/" element={
+      <NetworkStatus />
+      {/* AuthProvider has been removed from here; it's now solely in main.tsx */}
+      <Routes>
+        {/* Ruta principal - Landing Page */}
+        <Route path="/" element={
             <PublicRoute>
               <div>
                 <Navbar />
@@ -64,13 +76,13 @@ function App() {
           {/* Rutas de autenticación */}
           <Route path="/login" element={
             <PublicRoute>
-              <AuthComponent type="login" />
+              <AuthComponent type="login" key="login" />
             </PublicRoute>
           } />
           
           <Route path="/register" element={
             <PublicRoute>
-              <AuthComponent type="register" />
+              <AuthComponent type="register" key="register" />
             </PublicRoute>
           } />
 
@@ -104,7 +116,7 @@ function App() {
               </PrivateRoute>
             } />
 
-            <Route path="/pricing" element={<Pricing />} />
+            {/* /pricing route removed from protected layout block - defined as standalone public route below */}
 
             {/* Gestión de SST */}
             <Route path="/herramientas-sst/sgsst-pymes" element={
@@ -153,7 +165,7 @@ function App() {
             {/* Inspecciones y Controles */}
             <Route path="/herramientas-sst/checklist" element={
               <PrivateRoute>
-                <Checklist />
+                <CheckList />
               </PrivateRoute>
             } />
             <Route path="/herramientas-sst/inspecciones-generator" element={
@@ -229,7 +241,7 @@ function App() {
           {/* Ruta por defecto - Redirige a la landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
+      {/* AuthProvider has been removed from here; it's now solely in main.tsx */}
     </Router>
   )
 }

@@ -1,17 +1,8 @@
-import React, { useState } from 'react';
-import { Loader2, AlertTriangle, Lightbulb, ExternalLink } from 'lucide-react';
-import { assessRisk, getSuggestedTasks, Task, assessTaskRisks, TaskWithRisk, evaluateTaskRisk, RiskEvaluation, determineControls, ControlPlan } from '../services/riskMatrix';
-import { getLegalFramework } from '../services/perplexityService';
+import { useState } from 'react';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import { getSuggestedTasks, Task, assessTaskRisks, TaskWithRisk, evaluateTaskRisk, RiskEvaluation, determineControls, ControlPlan } from '../services/riskMatrix';
+import { getLegalFramework } from '../services/braveSearchService';
 import { exportToExcel } from '../utils/excelExport';
-
-interface ActionPlan {
-  characteristic: string;
-  limit: string;
-  monitoringMode: string;
-  responsible: string;
-  performanceDoc: string;
-  frequency: string;
-}
 
 interface LegalReference {
   name: string;
@@ -19,52 +10,17 @@ interface LegalReference {
   url?: string;
 }
 
-interface AssessmentResult {
-  probability: string;
-  severity: string;
-  riskLevel: string;
-  recommendations: string[];
-  operationalControls: string[];
-  actionPlan: ActionPlan;
-}
-
-interface RiskAssessment {
-  associatedRisk: string;
-  isCritical: boolean;
-  criticalityJustification?: string;
-  potentialDamage: string[];
-}
-
-interface RiskEvaluation {
-  probability: { value: number; description: string };
-  exposure: { value: number; description: string };
-  consequence: { value: number; description: string };
-  severity: { value: number; description: string };
-  riskMagnitude: number;
-  riskClassification: string;
-  justification: string;
-}
-
-interface Control {
-  type: string;
-  priority: number;
-  description: string;
-  effectiveness: { expected: number; description: string };
-  responsibles: string[];
-  deadline: { timeframe: string; justification: string };
-}
-
-interface ResidualRisk {
+interface _ResidualRisk {
   magnitude: number;
   classification: string;
   justification: string;
 }
 
-interface ControlPlan {
-  controls: Control[];
-  residualRisk: ResidualRisk;
-  recommendations: string[];
-}
+// interface ControlPlan { // Eliminado porque se importa desde riskMatrix.ts
+//   controls: Control[];
+//   residualRisk: ResidualRisk;
+//   recommendations: string[];
+// }
 
 interface TaskWithFullEvaluation extends TaskWithRisk {
   evaluation?: RiskEvaluation;
@@ -84,7 +40,6 @@ export default function RiskMatrix() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [loadingLegal, setLoadingLegal] = useState(false);
 
   const handleGetSuggestions = async () => {
     if (!processType || !activityName || !routineType || !country) {
@@ -93,22 +48,17 @@ export default function RiskMatrix() {
     }
 
     setLoadingSuggestions(true);
-    setLoadingLegal(true);
     setError(null);
     setSelectedTaskIds(new Set());
     
     try {
-      const [tasks, legal] = await Promise.all([
-        getSuggestedTasks(processType, activityName, routineType),
-        getLegalFramework(country, processType, activityName)
-      ]);
+      const tasks = await getSuggestedTasks(processType, activityName, routineType);
+      // const legal = await getLegalFramework(country, processType, activityName); // Legal framework is fetched per task later
       setSuggestedTasks(tasks);
-      // setLegalFramework(legal);
     } catch (err) {
       setError('Error al obtener datos: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoadingSuggestions(false);
-      setLoadingLegal(false);
     }
   };
 
@@ -166,8 +116,6 @@ export default function RiskMatrix() {
       'Tarea': task.description || 'Sin especificar',
       'Categoría GEMA': task.hazardGEMA?.category || 'Sin categoría',
       'Peligro': task.hazardGEMA?.hazard || 'Sin especificar',
-      'Sub-Peligro': task.hazardGEMA?.subHazard || 'No aplica',
-      'Detalle': task.hazardGEMA?.detail || 'Sin detalles',
       'Riesgo Asociado': task.riskAssessment?.associatedRisk || 'Sin especificar',
       'Criticidad': task.riskAssessment?.isCritical ? 'Crítico' : 'No Crítico',
       'Justificación de Criticidad': task.riskAssessment?.criticalityJustification || 'No aplica',
@@ -201,13 +149,14 @@ export default function RiskMatrix() {
     exportToExcel(excelData, 'Evaluacion_de_Riesgos');
   };
 
-  const handleTaskUpdate = (taskIndex: number, field: string, value: any) => {
+  const handleTaskUpdate = (taskIndex: number, field: string, value: string | number | boolean | string[]) => {
     const updatedTasks = [...selectedTasks];
     const task = { ...updatedTasks[taskIndex] };
 
     // Actualizar el campo específico basado en la ruta del campo
     const fieldParts = field.split('.');
-    let current: any = task;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let current: any = task; // Using any here for dynamic nested property access
     for (let i = 0; i < fieldParts.length - 1; i++) {
       if (!current[fieldParts[i]]) {
         current[fieldParts[i]] = {};
@@ -220,7 +169,7 @@ export default function RiskMatrix() {
     setSelectedTasks(updatedTasks);
   };
 
-  const handleControlUpdate = (taskIndex: number, controlIndex: number, field: string, value: any) => {
+  const handleControlUpdate = (taskIndex: number, controlIndex: number, field: string, value: string | number | boolean | string[]) => {
     const updatedTasks = [...selectedTasks];
     const task = { ...updatedTasks[taskIndex] };
     if (!task.controlPlan) return;
@@ -230,7 +179,8 @@ export default function RiskMatrix() {
 
     // Actualizar el campo específico del control
     const fieldParts = field.split('.');
-    let current: any = control;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let current: any = control; // Using any here for dynamic nested property access
     for (let i = 0; i < fieldParts.length - 1; i++) {
       if (!current[fieldParts[i]]) {
         current[fieldParts[i]] = {};
@@ -251,13 +201,13 @@ export default function RiskMatrix() {
     if (!task.controlPlan) {
       task.controlPlan = {
         controls: [],
-        residualRisk: { magnitude: 0, classification: '', justification: '' },
+        residualRisk: { magnitude: 0, classification: 'Bajo', justification: '' }, // Valor inicial válido
         recommendations: []
       };
     }
     
     task.controlPlan.controls.push({
-      type: '',
+      type: 'EPP', // Valor inicial válido
       priority: 1,
       description: '',
       effectiveness: { expected: 0, description: '' },

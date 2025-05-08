@@ -6,7 +6,7 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth } from '../firebase'; // Corrected import path
 import { CompanyProfile } from '../types/company';
 import { getCompanyProfile } from '../services/company';
 
@@ -16,7 +16,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  loading: boolean;
+  loading: boolean; // General loading for login/signup actions
+  initialLoading: boolean; // Specific loading for initial auth check
   error: string | null;
 }
 
@@ -33,7 +34,8 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Set general loading to false initially
+  const [initialLoading, setInitialLoading] = useState(true); // Add initial loading state
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,39 +53,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setCompanyProfile(null);
       }
-      setLoading(false);
+      // setLoading(false); // Remove this, use initialLoading
+      setInitialLoading(false); // Set initial loading to false after first check
     });
 
     return unsubscribe;
   }, []);
 
   const signup = async (email: string, password: string) => {
+    setLoading(true);
+    setError(null);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      setError(null);
     } catch (error) {
       setError('Error al crear la cuenta');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
+    setLoading(true);
+    setError(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      setError(null);
     } catch (error) {
       setError('Error al iniciar sesión');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
+    setLoading(true);
+    setError(null);
     try {
       await signOut(auth);
-      setError(null);
     } catch (error) {
       setError('Error al cerrar sesión');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,13 +105,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     signup,
     logout,
-    loading,
+    loading, // Keep general loading
+    initialLoading, // Add initial loading
     error
   };
 
+  // Render children only after initial auth check is complete
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {!initialLoading && children} 
     </AuthContext.Provider>
   );
 }

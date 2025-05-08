@@ -37,6 +37,7 @@
 - Revisión de configuración y dependencias: stack moderno, sin paquetes obsoletos ni riesgos evidentes.
 - Revisión de reglas de Firestore: acceso mínimo necesario, sin exposición de datos.
 - Revisión de variables de entorno: sin secretos expuestos, documentación clara.
+- Unificación de la lógica de generación de herramientas SST (ATS, PTS, Matriz de Riesgos) usando el componente ToolGenerator.
 
 ## Consideraciones de escalabilidad
 

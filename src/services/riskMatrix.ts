@@ -1,3 +1,6 @@
+import { fetchChatCompletions } from './aiService'; // Import the proxy helper
+
+// --- Interfaces ---
 interface ActionPlan {
   characteristic: string;
   limit: string;
@@ -17,7 +20,7 @@ interface RiskAssessment {
   legalFramework: string[];
 }
 
-interface Task {
+export interface Task {
   description: string;
   gender: 'Hombre' | 'Mujer' | 'Ambos';
   riskFamily: string;
@@ -34,7 +37,7 @@ interface RiskAssessmentTask {
   criticalityJustification?: string;
 }
 
-interface RiskEvaluation {
+export interface RiskEvaluation {
   probability: {
     value: number; // 1-3
     description: string;
@@ -56,16 +59,9 @@ interface RiskEvaluation {
   justification: string;
 }
 
-interface TaskWithRisk extends Task {
+export interface TaskWithRisk extends Task {
   riskAssessment?: RiskAssessmentTask;
   riskEvaluation?: RiskEvaluation;
-}
-
-interface ProcessActivity {
-  processType: 'Operación' | 'Apoyo';
-  activityName: string;
-  routineType: 'Rutinaria' | 'No Rutinaria';
-  tasks: TaskWithRisk[];
 }
 
 interface RiskControl {
@@ -83,7 +79,7 @@ interface RiskControl {
   };
 }
 
-interface ControlPlan {
+export interface ControlPlan {
   controls: RiskControl[];
   residualRisk: {
     magnitude: number;
@@ -92,6 +88,8 @@ interface ControlPlan {
   };
   recommendations: string[];
 }
+// --- End Interfaces ---
+
 
 export async function assessRisk(
   processType: string,
@@ -100,10 +98,6 @@ export async function assessRisk(
   jobPosition: string,
   country: string
 ): Promise<RiskAssessment> {
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
   const prompt = `Actúa como un experto en seguridad industrial y evalúa el siguiente escenario:
 
@@ -134,75 +128,63 @@ Proporciona una evaluación de riesgos en el siguiente formato JSON (sin usar co
 La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato markdown. Incluye las normativas y regulaciones específicas del país indicado que aplican a este tipo de proceso y actividad.`;
 
   try {
-    const response = await fetch(
-      `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api-key': apiKey,
+    const payload = {
+      messages: [
+        {
+          role: 'system' as const,
+          content: 'Eres un experto en seguridad industrial y gestión de riesgos. Tus respuestas deben ser ÚNICAMENTE en formato JSON, sin texto adicional ni formato markdown.',
         },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'system',
-              content: 'Eres un experto en seguridad industrial y gestión de riesgos. Tus respuestas deben ser ÚNICAMENTE en formato JSON, sin texto adicional ni formato markdown.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 800,
-          top_p: 0.95,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          stop: null,
-        }),
-      }
-    );
+        {
+          role: 'user' as const,
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 800,
+      // top_p: 0.95, // Proxy doesn't currently forward these extra params
+      // frequency_penalty: 0,
+      // presence_penalty: 0,
+      // stop: null,
+      response_format: { type: "json_object" } // Request JSON
+    };
 
-    if (!response.ok) {
-      throw new Error('Error en la API de Azure OpenAI');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+    let assessment: RiskAssessment;
+
+    // Assuming proxy returns the parsed JSON content directly if response_format was json_object
+    if (data && data.probability) {
+        assessment = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        // Fallback if proxy returns the full Azure object
+        const cleanContent = data.choices[0].message.content
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
+        try {
+            assessment = JSON.parse(cleanContent);
+        } catch (parseError) {
+            console.error('Error al parsear JSON en assessRisk fallback:', parseError);
+            console.log('Contenido recibido:', data.choices[0].message.content);
+            throw new Error('No se pudo procesar la respuesta del servicio de IA');
+        }
+    } else {
+        throw new Error("Respuesta inesperada del servicio de IA para assessRisk.");
     }
 
-    const data = await response.json();
-    let assessment;
-    
-    try {
-      // Primero limpiamos el contenido de markdown
-      const cleanContent = data.choices[0].message.content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
-      // Luego intentamos parsear
-      assessment = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Error al parsear JSON:', parseError);
-      console.log('Contenido recibido:', data.choices[0].message.content);
-      throw new Error('No se pudo procesar la respuesta del servicio');
-    }
 
-    if (!assessment.probability || !assessment.severity || !assessment.riskLevel || 
+    // Basic validation
+    if (!assessment.probability || !assessment.severity || !assessment.riskLevel ||
         !Array.isArray(assessment.recommendations) || !Array.isArray(assessment.operationalControls) ||
         !assessment.actionPlan || !Array.isArray(assessment.legalFramework)) {
-      throw new Error('La respuesta no tiene el formato esperado');
+      console.error("Estructura de respuesta inválida para assessRisk:", assessment);
+      throw new Error('La respuesta de IA no tiene el formato esperado');
     }
 
-    return {
-      probability: assessment.probability,
-      severity: assessment.severity,
-      riskLevel: assessment.riskLevel,
-      recommendations: assessment.recommendations,
-      operationalControls: assessment.operationalControls,
-      actionPlan: assessment.actionPlan,
-      legalFramework: assessment.legalFramework,
-    };
+    return assessment;
+
   } catch (error) {
-    console.error('Error completo:', error);
-    throw error;
+    console.error('Error completo en assessRisk:', error);
+    throw error; // Re-throw error to be handled by caller
   }
 }
 
@@ -211,10 +193,6 @@ export async function getSuggestions(
   processName: string,
   jobPosition: string
 ): Promise<string[]> {
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
   const prompt = `Como experto en seguridad ocupacional, sugiere una lista detallada de actividades específicas basadas en:
 
@@ -238,43 +216,40 @@ Formato deseado:
 Proporciona SOLO la lista de actividades, sin texto adicional ni explicaciones.`;
 
   try {
-    const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify({
+     const payload = {
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: 'Eres un experto en seguridad ocupacional con amplio conocimiento en procesos industriales y gestión de riesgos. Responde siempre en español y sé específico al contexto.'
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: prompt
           }
         ],
         temperature: 0.7,
         max_tokens: 500,
-      }),
-    });
+      };
 
-    if (!response.ok) {
-      throw new Error('Error al obtener sugerencias');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+    const content = data?.choices?.[0]?.message?.content || '';
+
+    if (!content) {
+        console.warn("No se recibió contenido del servicio de IA para getSuggestions.");
+        return [];
     }
 
-    const data = await response.json();
-    const suggestions = data.choices[0].message.content
+    // Parse the list format
+    const suggestions = content
       .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.startsWith('-'))
-      .map(line => line.substring(1).trim());
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.startsWith('-'))
+      .map((line: string) => line.substring(1).trim());
 
     return suggestions;
   } catch (error) {
     console.error('Error al obtener sugerencias:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
@@ -283,10 +258,6 @@ export async function getSuggestedTasks(
   activityName: string,
   routineType: 'Rutinaria' | 'No Rutinaria'
 ): Promise<TaskWithRisk[]> {
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
   const prompt = `Como experto en seguridad ocupacional, analiza la siguiente actividad y sugiere una lista detallada de tareas considerando la metodología GEMA (Gente, Equipo, Material, Ambiente):
 
@@ -319,67 +290,57 @@ Considera:
 La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato markdown.`;
 
   try {
-    const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify({
+     const payload = {
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: 'Eres un experto en seguridad ocupacional especializado en identificación de peligros y evaluación de riesgos usando la metodología GEMA. Proporciona respuestas detalladas y específicas al contexto.'
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: prompt
           }
         ],
         temperature: 0.7,
         max_tokens: 1500,
-      }),
-    });
+        response_format: { type: "json_object" } // Request JSON
+      };
 
-    if (!response.ok) {
-      throw new Error('Error al obtener sugerencias de tareas');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+    let result: { tasks: TaskWithRisk[] };
+
+    if (data && data.tasks) {
+        result = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        const cleanContent = data.choices[0].message.content
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
+        try {
+            result = JSON.parse(cleanContent);
+        } catch (parseError) {
+            console.error('Error al parsear JSON en getSuggestedTasks fallback:', parseError);
+            console.log('Contenido recibido:', data.choices[0].message.content);
+            throw new Error('No se pudo procesar la respuesta del servicio de IA');
+        }
+    } else {
+        throw new Error("Respuesta inesperada del servicio de IA para getSuggestedTasks.");
     }
 
-    const data = await response.json();
-    let result;
-    
-    try {
-      // Primero limpiamos el contenido de markdown
-      const cleanContent = data.choices[0].message.content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
-      // Luego intentamos parsear
-      result = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Error al parsear JSON:', parseError);
-      console.log('Contenido recibido:', data.choices[0].message.content);
-      throw new Error('No se pudo procesar la respuesta del servicio');
-    }
 
     if (!Array.isArray(result?.tasks)) {
-      console.error('Estructura inesperada:', result);
-      throw new Error('La respuesta no tiene el formato esperado');
+      console.error('Estructura inesperada en getSuggestedTasks:', result);
+      throw new Error('La respuesta de IA no tiene el formato esperado');
     }
 
     return result.tasks;
   } catch (error) {
     console.error('Error al obtener sugerencias de tareas:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
 export async function assessTaskRisks(task: Task): Promise<RiskAssessmentTask> {
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
   const prompt = `Como experto en seguridad ocupacional, analiza la siguiente tarea y proporciona una evaluación detallada de sus riesgos:
 
@@ -408,67 +369,57 @@ Considera:
 La respuesta debe ser ÚNICAMENTE el objeto JSON, sin texto adicional ni formato markdown.`;
 
   try {
-    const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify({
+     const payload = {
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: 'Eres un experto en seguridad ocupacional especializado en evaluación de riesgos laborales. Proporciona evaluaciones detalladas y precisas basadas en evidencia.'
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: prompt
           }
         ],
         temperature: 0.3, // Temperatura más baja para respuestas más consistentes
         max_tokens: 1000,
-      }),
-    });
+        response_format: { type: "json_object" } // Request JSON
+      };
 
-    if (!response.ok) {
-      throw new Error('Error al evaluar riesgos');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+    let result: RiskAssessmentTask;
+
+     if (data && data.associatedRisk) {
+        result = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        const cleanContent = data.choices[0].message.content
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
+        try {
+            result = JSON.parse(cleanContent);
+        } catch (parseError) {
+            console.error('Error al parsear JSON en assessTaskRisks fallback:', parseError);
+            console.log('Contenido recibido:', data.choices[0].message.content);
+            throw new Error('No se pudo procesar la respuesta del servicio de IA');
+        }
+    } else {
+        throw new Error("Respuesta inesperada del servicio de IA para assessTaskRisks.");
     }
 
-    const data = await response.json();
-    let result;
-    
-    try {
-      // Primero limpiamos el contenido de markdown
-      const cleanContent = data.choices[0].message.content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
-      // Luego intentamos parsear
-      result = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Error al parsear JSON:', parseError);
-      console.log('Contenido recibido:', data.choices[0].message.content);
-      throw new Error('No se pudo procesar la respuesta del servicio');
-    }
 
-    if (!result.associatedRisk || !Array.isArray(result.potentialDamage)) {
-      console.error('Estructura inesperada:', result);
-      throw new Error('La respuesta no tiene el formato esperado');
+    if (result.associatedRisk === undefined || !Array.isArray(result.potentialDamage)) { // Check for undefined instead of !result.associatedRisk which fails on empty string
+      console.error('Estructura inesperada en assessTaskRisks:', result);
+      throw new Error('La respuesta de IA no tiene el formato esperado');
     }
 
     return result;
   } catch (error) {
     console.error('Error al evaluar riesgos:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
 export async function evaluateTaskRisk(task: TaskWithRisk): Promise<RiskEvaluation> {
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
   const prompt = `Como experto en seguridad ocupacional, realiza una evaluación cuantitativa del riesgo para la siguiente tarea:
 
@@ -533,69 +484,59 @@ Formato de respuesta:
 }`;
 
   try {
-    const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify({
+     const payload = {
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: 'Eres un experto en evaluación cuantitativa de riesgos laborales. Proporciona evaluaciones detalladas y precisas basadas en evidencia y metodologías estándar de SST.'
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: prompt
           }
         ],
         temperature: 0.3,
         max_tokens: 1000,
-      }),
-    });
+        response_format: { type: "json_object" } // Request JSON
+      };
 
-    if (!response.ok) {
-      throw new Error('Error al evaluar riesgos');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+    let result: RiskEvaluation;
+
+     if (data && data.probability) {
+        result = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        const cleanContent = data.choices[0].message.content
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
+        try {
+            result = JSON.parse(cleanContent);
+        } catch (parseError) {
+            console.error('Error al parsear JSON en evaluateTaskRisk fallback:', parseError);
+            console.log('Contenido recibido:', data.choices[0].message.content);
+            throw new Error('No se pudo procesar la respuesta del servicio de IA');
+        }
+    } else {
+        throw new Error("Respuesta inesperada del servicio de IA para evaluateTaskRisk.");
     }
 
-    const data = await response.json();
-    let result;
-    
-    try {
-      // Primero limpiamos el contenido de markdown
-      const cleanContent = data.choices[0].message.content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
-      // Luego intentamos parsear
-      result = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Error al parsear JSON:', parseError);
-      console.log('Contenido recibido:', data.choices[0].message.content);
-      throw new Error('No se pudo procesar la respuesta del servicio');
-    }
 
     // Validar la estructura de la respuesta
-    if (!result.probability?.value || !result.exposure?.value || 
+    if (!result.probability?.value || !result.exposure?.value ||
         !result.consequence?.value || !result.severity?.value) {
-      console.error('Estructura inesperada:', result);
-      throw new Error('La respuesta no tiene el formato esperado');
+      console.error('Estructura inesperada en evaluateTaskRisk:', result);
+      throw new Error('La respuesta de IA no tiene el formato esperado');
     }
 
     return result;
   } catch (error) {
     console.error('Error al evaluar riesgos:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
 export async function determineControls(task: TaskWithRisk, riskEvaluation: RiskEvaluation): Promise<ControlPlan> {
-  const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-  const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION;
 
   const prompt = `Como experto en seguridad ocupacional, determina los controles necesarios para la siguiente tarea y su evaluación de riesgo. Responde SOLO con un objeto JSON válido, sin marcadores de código ni texto adicional:
 
@@ -646,78 +587,53 @@ Proporciona un plan de control siguiendo la jerarquía de controles en este form
 }`;
 
   try {
-    const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify({
+     const payload = {
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: 'Eres un experto en seguridad ocupacional. Responde SOLO con JSON válido, sin marcadores de código ni texto adicional.'
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: prompt
           }
         ],
         temperature: 0.3,
         max_tokens: 2000,
-      }),
-    });
+        response_format: { type: "json_object" } // Request JSON
+      };
 
-    if (!response.ok) {
-      throw new Error('Error al determinar controles');
+    const data = await fetchChatCompletions(payload); // Call via proxy
+    let result: ControlPlan;
+
+     if (data && data.controls) {
+        result = data;
+    } else if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        const cleanContent = data.choices[0].message.content
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
+        try {
+            result = JSON.parse(cleanContent);
+        } catch (parseError) {
+            console.error('Error al parsear JSON en determineControls fallback:', parseError);
+            console.log('Contenido recibido:', data.choices[0].message.content);
+            throw new Error('No se pudo procesar la respuesta del servicio de IA');
+        }
+    } else {
+        throw new Error("Respuesta inesperada del servicio de IA para determineControls.");
     }
 
-    const data = await response.json();
-    const content = data.choices[0].message.content.trim();
-    
-    // Función auxiliar para limpiar el contenido
-    const cleanJsonString = (str: string) => {
-      // Elimina marcadores de código y espacios en blanco al inicio y final
-      return str
-        .replace(/^```json\s*/, '')
-        .replace(/```\s*$/, '')
-        .replace(/^\s+|\s+$/g, '');
-    };
-
-    // Intenta parsear diferentes versiones del contenido
-    const attempts = [
-      content,
-      cleanJsonString(content),
-      content.replace(/[\u0000-\u001F]+/g, ''), // Elimina caracteres de control
-      cleanJsonString(content).replace(/[\u0000-\u001F]+/g, '')
-    ];
-
-    let result = null;
-    let error = null;
-
-    for (const attempt of attempts) {
-      try {
-        result = JSON.parse(attempt);
-        break;
-      } catch (e) {
-        error = e;
-        continue;
-      }
-    }
-
-    if (!result) {
-      console.error('Contenido que no se pudo parsear:', content);
-      throw error || new Error('No se pudo parsear la respuesta JSON');
-    }
 
     // Validar la estructura del resultado
     if (!Array.isArray(result.controls) || !result.residualRisk || !Array.isArray(result.recommendations)) {
-      throw new Error('La respuesta no tiene la estructura esperada');
+      console.error('Estructura inesperada en determineControls:', result);
+      throw new Error('La respuesta de IA no tiene la estructura esperada');
     }
 
     return result;
   } catch (error) {
     console.error('Error al determinar controles:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
