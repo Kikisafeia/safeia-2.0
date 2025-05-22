@@ -20,7 +20,7 @@ import SGSSTPymes from './pages/SGSSTPymes'
 import RiskMatrix from './pages/RiskMatrix'
 import RiskMap from './pages/RiskMap'
 import PTS from './pages/PTS'
-import ATS from './pages/ATS'
+import ATS from './pages/herramientas/ATS' // Corrected import path
 import CheckList from './pages/CheckList'
 import InspeccionesGenerator from './pages/InspeccionesGenerator'
 import Investigation from './pages/Investigation'

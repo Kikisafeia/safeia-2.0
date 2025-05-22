@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generateSafetyTalk, generateSuggestions, generateSafetyImage } from '../services/openai';
+import { generateSafetyTalk, generateSuggestions, generateImage } from '../services/aiService'; // Corrected function name
 import { Loader2, Download } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
@@ -91,7 +91,7 @@ export default function CharlaSeguridadGenerator() {
     try {
       const [charlaResult, imageUrlResult] = await Promise.all([
         generateSafetyTalk(formData),
-        generateSafetyImage(formData.tema, formData.estilo)
+        generateImage(`Charla de seguridad sobre ${formData.tema}, estilo ${formData.estilo}`) // Combined arguments into a single prompt
       ]);
       
       setCharla(charlaResult);

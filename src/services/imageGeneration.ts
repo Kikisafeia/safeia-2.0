@@ -1,70 +1,34 @@
-import { ImageGenerationConfig, ImageGenerationResponse, IdealScenario } from '../types/riskMap';
-import OpenAI from 'openai';
-import { encryptData, decryptData } from '../utils/encryption';
+import { ImageGenerationConfig, IdealScenario } from '../types/riskMap'; // ImageGenerationResponse might not be needed
+// import OpenAI from 'openai'; // No longer needed
+import { generateImage as generateImageViaProxy } from './aiService'; // Import the proxy function
+import { encryptData } from '../utils/encryption'; // decryptData might not be needed
 import { rateLimit } from '../utils/rateLimit';
 import { sanitizeInput } from '../utils/security';
 import { logger } from '../utils/logger';
 
 // Constantes de seguridad
-const MAX_REQUESTS_PER_MINUTE = 10;
+const MAX_REQUESTS_PER_MINUTE = 10; // This client-side rate limit might still be useful
 const MAX_PROMPT_LENGTH = 1000;
-const ALLOWED_IMAGE_SIZES = ['1024x1024', '1792x1024', '1024x1792'] as const;
-const ALLOWED_QUALITIES = ['standard', 'hd'] as const;
+// ALLOWED_IMAGE_SIZES and ALLOWED_QUALITIES might be irrelevant if proxy fixes them
+// const ALLOWED_IMAGE_SIZES = ['1024x1024', '1792x1024', '1024x1792'] as const;
+// const ALLOWED_QUALITIES = ['standard', 'hd'] as const;
 
-// Configuración de OpenAI con manejo seguro de credenciales
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_AZURE_DALLE_API_KEY,
-  baseURL: `${import.meta.env.VITE_AZURE_DALLE_ENDPOINT}/openai/deployments/${import.meta.env.VITE_AZURE_DALLE_DEPLOYMENT}`,
-  defaultQuery: { 'api-version': import.meta.env.VITE_AZURE_DALLE_API_VERSION },
-  defaultHeaders: {
-    'api-key': import.meta.env.VITE_AZURE_DALLE_API_KEY,
-    'X-Security-Headers': 'enabled',
-    'Content-Security-Policy': "default-src 'self'",
-  },
-  dangerouslyAllowBrowser: true,
-  timeout: 30000, // 30 segundos timeout
-  maxRetries: 3,
-});
+// No direct OpenAI client instantiation
+// const openai = new OpenAI({ ... }); // REMOVED
 
-// Validación robusta de configuración
-const validateConfig = () => {
-  const requiredEnvVars = [
-    'VITE_AZURE_DALLE_API_KEY',
-    'VITE_AZURE_DALLE_ENDPOINT',
-    'VITE_AZURE_DALLE_DEPLOYMENT',
-    'VITE_AZURE_DALLE_API_VERSION'
-  ];
+// validateConfig is no longer needed as we don't use direct env vars for OpenAI client here
+// const validateConfig = () => { ... }; // REMOVED
 
-  const missingVars = requiredEnvVars.filter(
-    varName => !import.meta.env[varName]
-  );
-
-  if (missingVars.length > 0) {
-    logger.error('Configuración incompleta', { missingVars });
-    throw new Error(
-      `Error de configuración: Variables de entorno faltantes: ${missingVars.join(', ')}`
-    );
-  }
-
-  // Validar formato de las variables
-  const endpointUrl = new URL(import.meta.env.VITE_AZURE_DALLE_ENDPOINT);
-  if (!endpointUrl.protocol.startsWith('https')) {
-    throw new Error('El endpoint debe usar HTTPS');
-  }
-};
-
-// Validación de parámetros de entrada
+// Validación de parámetros de entrada (can be kept for prompt construction)
 const validateGenerationParams = (
   description: string,
-  improvements: string[],
-  config: Partial<ImageGenerationConfig>
+  improvements: string[]
+  // config: Partial<ImageGenerationConfig> // Config for size/quality might not be passable to proxy
 ) => {
-  // Sanitizar y validar descripción
   if (!description || description.length > MAX_PROMPT_LENGTH) {
     throw new Error(`La descripción debe tener entre 1 y ${MAX_PROMPT_LENGTH} caracteres`);
   }
 
-  // Sanitizar y validar mejoras
   if (!Array.isArray(improvements) || improvements.length === 0) {
     throw new Error('Se requiere al menos una mejora');
   }
@@ -75,27 +39,20 @@ const validateGenerationParams = (
     }
   });
 
-  // Validar configuración
-  if (config.size && !ALLOWED_IMAGE_SIZES.includes(config.size as any)) {
-    throw new Error('Tamaño de imagen no válido');
-  }
-
-  if (config.quality && !ALLOWED_QUALITIES.includes(config.quality as any)) {
-    throw new Error('Calidad de imagen no válida');
-  }
+  // Validation for config.size and config.quality removed as they might not be used
 };
 
 export async function generateIdealScenario(
   description: string,
   improvements: string[],
-  config: Partial<ImageGenerationConfig> = {}
+  // config: Partial<ImageGenerationConfig> = {} // Config might be mostly ignored
 ): Promise<IdealScenario> {
   try {
     // Validaciones de seguridad
-    validateConfig();
-    validateGenerationParams(description, improvements, config);
+    // validateConfig(); // REMOVED
+    validateGenerationParams(description, improvements);
 
-    // Rate limiting
+    // Rate limiting (client-side, consider if still needed/effective)
     await rateLimit('generateImage', MAX_REQUESTS_PER_MINUTE);
 
     // Sanitizar inputs
@@ -103,76 +60,62 @@ export async function generateIdealScenario(
     const sanitizedImprovements = improvements.map(sanitizeInput);
 
     // Crear prompt seguro
-    const prompt = `Generate a photorealistic image of an ideal workplace scenario that shows:
+    // The generateImageViaProxy in aiService prepends "Imagen profesional sobre seguridad laboral: "
+    // So we adjust the prompt here.
+    const specificPromptContent = `un escenario ideal de lugar de trabajo que muestra:
     
-    Original situation: ${sanitizedDescription}
+    Situación original: ${sanitizedDescription}
     
-    With the following safety improvements implemented:
+    Con las siguientes mejoras de seguridad implementadas:
     ${sanitizedImprovements.map(imp => `- ${imp}`).join('\n')}
     
-    The image should be well-lit, clear, and demonstrate professional safety standards in a realistic work environment.
-    Focus on showing the improvements in a way that clearly contrasts with the original situation.`;
+    La imagen debe estar bien iluminada, ser clara y demostrar estándares de seguridad profesionales en un entorno de trabajo realista.
+    Enfóquese en mostrar las mejoras de una manera que contraste claramente con la situación original.`;
 
-    // Configuración segura
-    const defaultConfig: ImageGenerationConfig = {
-      model: 'dall-e-3',
-      quality: 'standard',
-      style: 'natural',
-      size: '1024x1024'
-    };
+    // Configuración de tamaño/calidad no se pasa al proxy directamente por aiService.generateImage
+    // const defaultConfig: ImageGenerationConfig = { ... }; // REMOVED
+    // const finalConfig = { ...defaultConfig, ...config }; // REMOVED
 
-    const finalConfig = { ...defaultConfig, ...config };
+    logger.info('Iniciando generación de imagen via proxy');
 
-    logger.info('Iniciando generación de imagen', {
-      configHash: encryptData(JSON.stringify(finalConfig))
-    });
-
-    // Generar imagen con manejo de errores
-    const response = await openai.images.generate({
-      model: finalConfig.model,
-      prompt: prompt,
-      n: 1,
-      size: finalConfig.size,
-      quality: finalConfig.quality,
-      style: finalConfig.style
-    }).catch(error => {
-      logger.error('Error en la generación de imagen', { error });
+    // Generar imagen con manejo de errores usando el proxy
+    const imageUrl = await generateImageViaProxy(specificPromptContent).catch(error => {
+      logger.error('Error en la generación de imagen via proxy', { error });
       throw error;
     });
 
-    if (!response.data?.[0]?.url) {
-      throw new Error('Respuesta inválida del servicio de generación de imágenes');
+    if (!imageUrl) {
+      throw new Error('Respuesta inválida del servicio de generación de imágenes (URL vacía)');
     }
 
     // Crear escenario ideal con datos sanitizados
     const idealScenario: IdealScenario = {
-      imageUrl: response.data[0].url,
+      imageUrl: imageUrl,
       description: sanitizeInput(`Escenario mejorado que implementa: ${sanitizedImprovements.join(', ')}`),
       improvements: sanitizedImprovements,
       generatedDate: new Date().toISOString()
     };
 
-    logger.info('Imagen generada exitosamente', {
-      scenarioId: encryptData(idealScenario.imageUrl)
+    logger.info('Imagen generada exitosamente via proxy', {
+      scenarioId: encryptData(idealScenario.imageUrl) // Encrypting URL might not be necessary if it's just for logging
     });
 
     return idealScenario;
   } catch (error) {
     logger.error('Error en generateIdealScenario', { error });
-    throw new Error(
-      error instanceof Error 
-        ? `Error de seguridad: ${error.message}`
-        : 'Error de seguridad desconocido'
-    );
+    // Preserve original error type if possible, otherwise wrap
+    if (error instanceof Error) {
+        throw new Error(`Error al generar escenario ideal: ${error.message}`);
+    }
+    throw new Error('Error desconocido al generar escenario ideal');
   }
 }
 
 export async function generateIdealScenarios(
   risks: Array<{ description: string; improvements: string[] }>,
-  config?: Partial<ImageGenerationConfig>
+  // config?: Partial<ImageGenerationConfig> // Config might be mostly ignored
 ): Promise<IdealScenario[]> {
-  // Validación inicial
-  validateConfig();
+  // validateConfig(); // REMOVED
 
   const scenarios: IdealScenario[] = [];
   const errors: string[] = [];
@@ -188,8 +131,8 @@ export async function generateIdealScenarios(
 
       const scenario = await generateIdealScenario(
         risk.description,
-        risk.improvements,
-        config
+        risk.improvements
+        // config // Removed as generateIdealScenario no longer accepts it
       );
 
       scenarios.push(scenario);

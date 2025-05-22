@@ -1,16 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { RiskMap, RiskPoint, RiskZone } from '../types/riskMap';
 import { generateRiskHeatmap } from '../services/riskMap';
-import { AlertTriangle, ZoomIn, ZoomOut, Move, Maximize2, MinusCircle, PlusCircle, RotateCcw, Eye, EyeOff } from 'lucide-react';
-import RiskAnalysisResults from './RiskAnalysisResults';
+import { AlertTriangle, MinusCircle, PlusCircle, RotateCcw, Eye, EyeOff, X } from 'lucide-react';
+
+import type { RiskMap, RiskPoint, RiskZone } from '../types/riskMap';
 
 interface RiskMapViewerProps {
   riskMap: RiskMap;
-  onPointClick?: (point: RiskPoint) => void;
-  onZoneClick?: (zone: RiskZone) => void;
 }
 
-const RiskMapViewer: React.FC<RiskMapViewerProps> = ({ riskMap, onPointClick, onZoneClick }) => {
+const RiskMapViewer: React.FC<RiskMapViewerProps> = ({ riskMap }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,7 +19,6 @@ const RiskMapViewer: React.FC<RiskMapViewerProps> = ({ riskMap, onPointClick, on
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [selectedRisk, setSelectedRisk] = useState<RiskPoint | RiskZone | null>(null);
-  const [showResults, setShowResults] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -196,7 +193,7 @@ const RiskMapViewer: React.FC<RiskMapViewerProps> = ({ riskMap, onPointClick, on
           </h2>
         </div>
         <div className="divide-y divide-gray-200">
-          {riskMap.points.map((point, index) => (
+          {riskMap.points.map((point) => (
             <div
               key={point.id}
               className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
@@ -368,7 +365,11 @@ const RiskMapViewer: React.FC<RiskMapViewerProps> = ({ riskMap, onPointClick, on
             <div>
               <h3 className="text-sm font-medium text-gray-900">Ubicación</h3>
               <p className="mt-1 text-sm text-gray-600">
-                X: {selectedRisk.x}, Y: {selectedRisk.y}
+                {isRiskPoint(selectedRisk) ? (
+                  `X: ${selectedRisk.coordinates.x}, Y: ${selectedRisk.coordinates.y}`
+                ) : (
+                  'Zona delimitada'
+                )}
               </p>
             </div>
           </div>
@@ -378,12 +379,24 @@ const RiskMapViewer: React.FC<RiskMapViewerProps> = ({ riskMap, onPointClick, on
   );
 };
 
+function isPointCoordinates(coords: unknown): coords is { x: number; y: number } {
+  return typeof coords === 'object' && coords !== null && 
+         'x' in coords && 'y' in coords &&
+         typeof (coords as {x: unknown}).x === 'number' && 
+         typeof (coords as {y: unknown}).y === 'number';
+}
+
 function drawRiskPoints(ctx: CanvasRenderingContext2D, points: RiskPoint[], scale: number) {
   points.forEach(point => {
-    if (!point || !point.coordinates) return;
+    if (!point?.coordinates) return;
 
-    const x = typeof point.coordinates.x === 'number' ? point.coordinates.x * scale : 0;
-    const y = typeof point.coordinates.y === 'number' ? point.coordinates.y * scale : 0;
+    let x = 0;
+    let y = 0;
+    
+    if (isPointCoordinates(point.coordinates)) {
+      x = point.coordinates.x * scale;
+      y = point.coordinates.y * scale;
+    }
 
     if (x === 0 && y === 0) return;
 
@@ -427,24 +440,21 @@ function drawRiskZones(ctx: CanvasRenderingContext2D, zones: RiskZone[], scale: 
   });
 }
 
-function getRiskColor(severity: 'bajo' | 'medio' | 'alto', alpha: number = 1): string {
+function getRiskColor(severity: 'bajo' | 'medio' | 'alto' | 'critico', alpha: number = 1): string {
   const colors = {
-    bajo: `rgba(76, 175, 80, ${alpha})`,     // Verde
-    medio: `rgba(255, 152, 0, ${alpha})`,    // Naranja
-    alto: `rgba(244, 67, 54, ${alpha})`      // Rojo
+    bajo: `rgba(76, 175, 80, ${alpha})`,     // Green
+    medio: `rgba(255, 152, 0, ${alpha})`,    // Orange
+    alto: `rgba(244, 67, 54, ${alpha})`,     // Red
+    critico: `rgba(156, 39, 176, ${alpha})`  // Purple
   };
   return colors[severity] || colors.medio;
 }
 
-function isPointInPolygon(x: number, y: number, points: [number, number][]): boolean {
-  let inside = false;
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const xi = points[i][0], yi = points[i][1];
-    const xj = points[j][0], yj = points[j][1];
-    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
+function isRiskPoint(risk: RiskPoint | RiskZone): risk is RiskPoint {
+  return 'coordinates' in risk && 
+         typeof risk.coordinates === 'object' && 
+         'x' in risk.coordinates && 
+         'y' in risk.coordinates;
 }
 
 export default RiskMapViewer;

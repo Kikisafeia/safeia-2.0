@@ -1,7 +1,8 @@
-import { initializeApp } from '@firebase/app';
-import { getAuth } from '@firebase/auth';
-import { getFirestore } from '@firebase/firestore';
-import { getStorage } from '@firebase/storage';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+// Import initializeFirestore instead of getFirestore to apply settings
+import { initializeFirestore, CACHE_SIZE_UNLIMITED } from 'firebase/firestore'; 
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -25,8 +26,12 @@ if (app && app.name) {
 
 // Initialize services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
-console.log('[firebase.ts] Firestore DB Instance:', db); // Log the db instance
+// Initialize Firestore with long-polling enabled and potentially unlimited cache
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  cacheSizeBytes: CACHE_SIZE_UNLIMITED 
+});
+console.log('[firebase.ts] Firestore DB Instance (with long-polling & cache settings):', db); 
 export const storage = getStorage(app);
 
 

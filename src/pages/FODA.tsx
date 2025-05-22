@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generateFODAAnalysis } from '../services/openai';
+import { generateFODAAnalysis } from '../services/aiService'; // Updated import path
 import { Loader2 } from 'lucide-react';
 
 interface FODAItem {

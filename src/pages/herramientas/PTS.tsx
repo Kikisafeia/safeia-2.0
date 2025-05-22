@@ -1,14 +1,15 @@
 import React from 'react';
 import ToolGenerator from '../../components/tools/ToolGenerator';
-import { generatePTS as originalGeneratePTS } from '../../services/azureOpenAI';
+import { generatePTS as generatePTSFromAIService } from '../../services/aiService'; // Renamed import
 
 // Adaptador para la función generatePTS
-const generatePTS = async (formData: any) => {
-  return originalGeneratePTS(
-    formData.activity,
-    formData.riskLevel,
-    formData.equipment,
-    formData.location
+const handleGeneratePTS = async (formData: Record<string, any>) => { // Renamed function, typed formData
+  // Ensure formData properties are passed as strings, as expected by generatePTSFromAIService
+  return generatePTSFromAIService(
+    String(formData.activity),
+    String(formData.riskLevel),
+    String(formData.equipment),
+    String(formData.location)
   );
 };
 
@@ -100,7 +101,7 @@ const PTS: React.FC = () => {
       title="Procedimiento de Trabajo Seguro (PTS)"
       description="Esta herramienta genera procedimientos de trabajo seguro detallados para actividades de riesgo."
       formFields={formFields}
-      generateFunction={generatePTS}
+      generateFunction={handleGeneratePTS} // Use the new handler
       resultTemplate={resultTemplate}
     />
   );

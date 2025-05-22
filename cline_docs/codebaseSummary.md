@@ -50,14 +50,40 @@
 - Se refactorizó la inicialización de `AuthProvider` para eliminar una instancia duplicada; ahora se instancia únicamente en `main.tsx`.
 - Se mejoró `AuthContext.tsx` implementando el estado `loading` en las funciones `login`, `signup` y `logout`.
 - **Se implementó un backend proxy en `server/index.js` para gestionar de forma segura las llamadas a los servicios de Azure OpenAI, mitigando una vulnerabilidad crítica de exposición de claves API.**
-- **Se consolidaron los servicios de IA frontend en `src/services/aiService.ts`, eliminando los archivos redundantes `openai.ts` y `azureOpenAI.ts`.**
-- **Se refactorizaron `aiService.ts`, `src/hooks/useSuggestions.ts`, `src/services/investigation.ts`, `src/services/riskMatrix.ts` y `src/services/legal.ts` para usar el backend proxy y las rutas de importación correctas.**
+- **Se consolidaron los servicios de IA frontend en `src/services/aiService.ts`, eliminando los archivos redundantes `openai.ts`, `azureOpenAI.ts` y el problemático `ai.ts`.**
+- **Se refactorizaron `aiService.ts`, `src/hooks/useSuggestions.ts`, `src/services/investigation.ts`, `src/services/riskMatrix.ts`, `src/services/legal.ts` y `src/services/audit.ts` para usar el backend proxy y las rutas de importación correctas.**
 - **Se eliminaron las claves API de Azure OpenAI del archivo `.env` del frontend.**
 - **Se simplificó la definición de rutas en `src/App.tsx` eliminando una definición duplicada de la ruta `/pricing`.**
 - **Se refactorizó `src/services/braveSearchService.ts` para eliminar la implementación mock y clarificar el uso del MCP tool.**
-- **Se eliminó el archivo redundante `src/services/mcp.ts`.**
-- **Se refactorizó `src/services/agentService.ts` para eliminar datos hardcodeados y usar los endpoints del API backend (`/api/agents...`).**
-- **Se refactorizó `src/services/investigation.ts` para solicitar y procesar JSON desde la API en lugar de parsear markdown.**
+    - **Se eliminó el archivo redundante `src/services/mcp.ts`.**
+    - **Se refactorizó `src/services/agentService.ts` para eliminar datos hardcodeados y usar los endpoints del API backend (`/api/agents...`).**
+    - **Se refactorizó `src/services/investigation.ts` para solicitar y procesar JSON desde la API en lugar de parsear markdown.**
+    - **Se eliminó el archivo problemático y no utilizado `src/services/ai.ts`.**
+    - **Se refactorizaron las páginas de herramientas que utilizan `ToolGenerator` (ej. `MatrizRiesgos.tsx`, `ATS.tsx`, `PTS.tsx`) para asegurar que importan y utilizan correctamente el servicio centralizado `src/services/aiService.ts` y manejan adecuadamente los tipos de datos para las funciones de generación, eliminando referencias a `azureOpenAI.ts` (ya eliminado).**
+    - **Se configuró el backend proxy (`server/index.js`) con las variables de entorno correctas para Azure OpenAI en `server/.env`, resolviendo errores de comunicación.**
+- **Se corrigió un error en `src/services/audit.ts`**: La función `generateAuditFindings` ahora maneja de forma segura los casos en que el parámetro `hallazgos` es `undefined`, previniendo un `TypeError`.
+- **Se mejoró la herramienta ATS (`src/pages/herramientas/ATS.tsx` y `src/services/aiService.ts`):**
+    - Se incluyó el campo "Sector Industrial" en los datos enviados al servicio de IA (`generateDAS`) para generar análisis más precisos.
+    - Se actualizó la función `generateDAS` en `aiService.ts` para solicitar y procesar respuestas en formato JSON, incluyendo detalles como consecuencias y medidas preventivas para cada riesgo.
+    - Se hizo más robusta la plantilla de resultados (`resultTemplate`) en `ATS.tsx` para manejar adecuadamente datos incompletos o faltantes de la IA.
+- **Se mejoró la herramienta ATS (`src/pages/herramientas/ATS.tsx` y `src/services/aiService.ts`) para integrar la búsqueda de legislación aplicable:**
+    - `aiService.ts` (`DASInput` y `generateDAS`) ahora puede aceptar y utilizar `legislacionAplicable` en el prompt a la IA.
+    - `ATS.tsx` (`handleGenerateDAS`) está preparado conceptualmente para que el asistente realice una búsqueda de legislación (usando el MCP de Brave Search con el país y sector del formulario) y la incorpore en la generación del ATS.
+- **Se resolvió un error `AzureKeyCredential` relacionado con la herramienta ATS:**
+    - Se eliminó un archivo obsoleto `src/pages/ATS.tsx` que intentaba realizar llamadas directas al SDK de Azure OpenAI.
+    - Se corrigió la importación en `src/App.tsx` para que la ruta `/herramientas-sst/ats` apunte correctamente a `src/pages/herramientas/ATS.tsx` (la versión actual que utiliza el backend proxy).
+- **Se añadieron botones de asistencia con IA a la herramienta ATS (`src/pages/herramientas/ATS.tsx`):**
+    - Se crearon nuevas funciones en `aiService.ts` (`suggestActividadesATS`, `suggestEquiposATS`, `suggestMaterialesATS`) para obtener sugerencias de IA para los campos "Actividades Principales", "Equipos/Maquinaria Utilizada" y "Materiales/Substancias".
+    - `ATS.tsx` ahora pasa estas funciones de sugerencia al componente `ToolGenerator` a través de la prop `suggestionFunctions`.
+    - `ToolGenerator.tsx` ya estaba equipado para mostrar botones de sugerencia (✨) y manejar la lógica de llamada para campos `textarea` cuando se le proporcionan estas funciones.
+- **Se reestructuró la salida de la herramienta ATS para mostrar los resultados en formato de tabla:**
+    - La interfaz `DASResponse` en `aiService.ts` fue modificada para reflejar una estructura basada en `etapas` del trabajo (cada etapa con `nombreEtapa`, `riesgosAspectosIncidentes`, `medidasPreventivas`). También se añadió `legislacionAplicableOriginal` para pasar la legislación general.
+    - El prompt para la IA en la función `generateDAS` (`aiService.ts`) fue actualizado para solicitar esta nueva estructura de datos. La lógica de parseo también se hizo más robusta.
+    - La función `resultTemplate` en `src/pages/herramientas/ATS.tsx` fue completamente reescrita para renderizar una tabla HTML con columnas "Etapas del trabajo", "Riesgos / Aspecto ambientales / incidentes", "Medidas Preventivas", y "Legislación Aplicable al tipo de trabajo", utilizando los datos de `result.etapas` y `result.legislacionAplicableOriginal`.
+- **Se implementó la búsqueda automática de legislación para la herramienta ATS:**
+    - Se creó un nuevo endpoint en el backend (`server/index.js` en la ruta `POST /api/legislation/search-ats`).
+    - Este endpoint toma `pais` y `sector`, realiza una búsqueda de legislación usando Brave Search (a través de una llamada a un MCP Router local), y luego usa Azure OpenAI para resumir los resultados de búsqueda.
+    - El frontend (`src/pages/herramientas/ATS.tsx`), en su función `handleGenerateDAS`, ahora llama a este endpoint para obtener la legislación aplicable de forma automática antes de generar el contenido principal del ATS.
 
 ## Integración de feedback
 

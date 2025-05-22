@@ -31,7 +31,7 @@ const IndiceUV: React.FC = () => {
       decay: 0.94,
       startVelocity: 30,
       shapes: ['circle'],
-      colors: ['#FFD700', '#FFA500', '#FF6347']
+      colors: ['#FFD700', '#FFA500', '#FF6347'] // Keep hex for confetti
     };
 
     function shoot() {

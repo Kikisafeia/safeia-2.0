@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generatePTS, generatePTSActivitySuggestions } from '../services/azureOpenAI';
+import { generatePTS, generatePTSActivitySuggestions } from '../services/aiService'; // Updated import path
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FileCheck, Loader2 } from 'lucide-react';
@@ -331,7 +331,7 @@ export default function PTS() {
                     document.body.appendChild(element);
                     element.click();
                     document.body.removeChild(element);
-                    URL.revokeObjectURL(url);
+                    URL.revokeObjectURL(element.href); // Corrected variable
                   }}
                   className="bg-safeia-yellow hover:bg-safeia-yellow-dark text-white px-4 py-2 rounded transition-colors duration-200"
                 >

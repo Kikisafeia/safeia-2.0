@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { getLegalRequirements, Country } from '../services/mcp';
+import { generateLegalRequirements, Country } from '../services/legal'; // Corrected function name
 
 const countryNames: Record<Country, string> = {
   'CL': 'Chile',
@@ -90,16 +90,15 @@ export default function Legal() {
     e.preventDefault();
     setLoading(true);
     try {
-      const requirements = await getLegalRequirements({
-        companyName: formData.companyName,
-        industry: formData.industry,
-        location: formData.city,
-        country: formData.country,
-        scope: formData.activities,
-        activities: formData.activities,
-        useBraveSearch: formData.useBraveSearch,
-        searchDepth: formData.searchDepth
-      });
+      const requirements = await generateLegalRequirements(
+        formData.companyName,
+        formData.industry,
+        formData.city, // location
+        formData.country,
+        formData.regulationScope.join(', '), // scope
+        formData.activities
+        // useBraveSearch and searchDepth are not params of generateLegalRequirements in legal.ts
+      );
       setResult(requirements);
     } catch (error) {
       setError({ 

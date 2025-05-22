@@ -9,13 +9,20 @@ export default defineConfig({
     strictPort: true, 
     open: '/',
     proxy: {
-      '/api/dify': {
+      // Proxy más específico para /api/dify PRIMERO
+      '/api/dify': { 
         target: 'https://api.dify.ai/v1',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/dify/, ''),
         headers: {
           'Origin': 'https://api.dify.ai'
         }
+      },
+      // Proxy general para todas las demás llamadas /api/... al backend
+      '/api': {
+        target: 'http://127.0.0.1:3001', // Tu servidor backend
+        changeOrigin: true, // Necesario para hosts virtuales
+        secure: false,      // No verificar SSL si el backend es http
       },
       '/__/auth/handler': {
         target: 'https://safeia-2.firebaseapp.com',
@@ -24,10 +31,6 @@ export default defineConfig({
         headers: {
           'Origin': 'https://safeia-2.firebaseapp.com'
         }
-      },
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
       }
     },
     cors: {

@@ -1,6 +1,6 @@
 import React from 'react';
 import ToolGenerator from '../../components/tools/ToolGenerator';
-import { generateRiskMatrix } from '../../services/azureOpenAI';
+import { generateRiskMatrix } from '../../services/aiService';
 
 const MatrizRiesgos: React.FC = () => {
   const formFields = [
@@ -104,12 +104,24 @@ const MatrizRiesgos: React.FC = () => {
     </>
   );
 
+  const handleGenerateRiskMatrix = (formData: Record<string, any>): Promise<any> => {
+    // Ensure formData conforms to RiskMatrixInput, especially 'workers' as number
+    const input: import('../../services/aiService').RiskMatrixInput = {
+      company: String(formData.company),
+      sector: String(formData.sector),
+      processes: String(formData.processes),
+      workers: Number(formData.workers),
+      history: formData.history ? String(formData.history) : undefined,
+    };
+    return generateRiskMatrix(input);
+  };
+
   return (
     <ToolGenerator
       title="Matriz de Riesgos"
       description="Esta herramienta genera una matriz de riesgos completa identificando peligros, evaluando riesgos y proponiendo medidas de control."
       formFields={formFields}
-      generateFunction={generateRiskMatrix}
+      generateFunction={handleGenerateRiskMatrix}
       resultTemplate={resultTemplate}
     />
   );

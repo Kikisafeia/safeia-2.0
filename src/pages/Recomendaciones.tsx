@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { Plus, X } from 'lucide-react';
-import { generateSafetyRecommendations } from '../services/openai';
+import { generateSafetyRecommendations } from '../services/aiService'; // Updated import path
 
 interface Recomendacion {
   categoria: string;

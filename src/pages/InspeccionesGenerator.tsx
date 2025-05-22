@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generateInspection } from '../services/openai';
+import { generateInspection } from '../services/aiService'; // Updated import path
 import { Loader2, Download } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import ItemInspeccion from '../components/ItemInspeccion';

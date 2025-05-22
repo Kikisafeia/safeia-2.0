@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Download, Wand2, Check, X } from 'lucide-react';
 import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { BlobProvider, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 
 interface Sugerencia {
   id: string;
@@ -22,7 +22,7 @@ interface ODIDocument {
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF', // Keep as hex for PDF generation consistency
     padding: 30,
   },
   section: {
@@ -407,23 +407,34 @@ const ObligacionInformar: React.FC = () => {
           {loading ? 'Generando...' : 'Generar ODI'}
         </button>
         {odiDocument && (
-          <PDFDownloadLink
+          <BlobProvider
             document={
               <ODIPdf
                 data={odiDocument}
                 workerInfo={{ nombre, rut, cargo, area }}
               />
             }
-            fileName={`ODI_${nombre.replace(/\s+/g, '_')}_${cargo.replace(/\s+/g, '_')}.pdf`}
-            className="px-4 py-2 bg-safeia-black text-white rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300"
           >
-            {({ loading }) => (
-              <>
-                <Download className="w-4 h-4 inline-block mr-2" />
-                {loading ? 'Generando PDF...' : 'Descargar PDF'}
-              </>
+            {({ url, loading }: { url: string | null, loading: boolean }) => (
+              <a
+                href={url || '#'}
+                download={`ODI_${nombre.replace(/\s+/g, '_')}_${cargo.replace(/\s+/g, '_')}.pdf`}
+                className="px-4 py-2 bg-safeia-black text-white rounded-md hover:bg-safeia-yellow hover:text-safeia-black transition duration-300 inline-flex items-center"
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <Download className="w-4 h-4 inline-block mr-2" />
+                    Generando PDF...
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <Download className="w-4 h-4 inline-block mr-2" />
+                    Descargar PDF
+                  </span>
+                )}
+              </a>
             )}
-          </PDFDownloadLink>
+          </BlobProvider>
         )}
       </div>
 

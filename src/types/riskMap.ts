@@ -1,60 +1,89 @@
-// Tipos básicos
-export type RiskSeverity = 'bajo' | 'medio' | 'alto';
+// Risk categories according to Chilean regulations
+export type RiskCategory = 
+  | 'seguridad'       // Safety risks
+  | 'higienico'       // Hygiene risks
+  | 'musculo_esqueletico' // Musculoskeletal
+  | 'psicosocial';    // Psychosocial
 
-// Imagen ideal generada
-export interface IdealScenario {
-  imageUrl: string;
-  description: string;
-  improvements: string[];
-  generatedDate: string;
+// Official severity levels  
+export type RiskSeverity = 'bajo' | 'medio' | 'alto' | 'critico';
+
+// Coordinates in percentage (0-100) of the map dimensions
+interface Coordinates {
+  x: number;
+  y: number;
 }
 
-// Riesgo identificado
-export interface Risk {
+// Risk point definition
+export interface RiskPoint {
   id: string;
+  name: string;
+  coordinates: Coordinates;
+  category: 'seguridad' | 'higienico' | 'musculo_esqueletico' | 'psicosocial';
+  severity: 'bajo' | 'medio' | 'alto' | 'critico';
   description: string;
-  severity: RiskSeverity;
-  location: string;
-  consequences: string;
-  controls: string[];
-  idealScenario?: IdealScenario;  // Escenario ideal generado por DALL-E
-  actionPlan: {
-    action: string;
-    responsible: string;
-    deadline: string;
-    status: 'pendiente' | 'en_progreso' | 'completado';
-  }[];
+  probability: number; // 1-10
+  impact: number; // 1-10
+  mitigation?: string;
+  recommendations: string[];
 }
 
-// Análisis de riesgos
-export interface RiskAnalysis {
+// Risk zone definition (polygon area)
+export interface RiskZone {
   id: string;
-  imageUrl: string;
-  date: string;
-  location: string;
+  coordinates: [number, number][]; // Array of [x,y] coordinates in percentage
+  category: 'seguridad' | 'higienico' | 'musculo_esqueletico' | 'psicosocial';
+  severity: 'bajo' | 'medio' | 'alto' | 'critico';
   description: string;
-  risks: Risk[];
-  summary: string;
-  idealScenarios?: IdealScenario[];  // Colección de escenarios ideales generados
+  probability: number; // 1-10
+  impact: number; // 1-10
+  mitigation?: string;
+  recommendations: string[];
 }
 
-// Captura de imagen
-export interface ImageCapture {
-  type: 'upload' | 'camera';
-  data: string | File;
+// Complete risk map definition
+export interface RiskMap {
+  id: string;
+  name: string;
+  imageUrl: string;
+  width: number;
+  height: number;
+  points: RiskPoint[];
+  zones: RiskZone[];
+  lastUpdated: string;
+  status: 'borrador' | 'revision' | 'aprobado';
+  // New fields for image analysis
+  imageAnalysis?: {
+    detectedElements: {
+      type: string;
+      coordinates: {x: number; y: number; width: number; height: number};
+      confidence: number;
+    }[];
+    suggestedRisks: Array<{
+      type: string;
+      category: RiskCategory;
+      description: string;
+      confidence: number;
+      recommendedPosition: {x: number; y: number};
+    }>;
+  };
+  // Editing metadata
+  editorMetadata?: {
+    lastEditor: string;
+    editHistory: Array<{
+      timestamp: string;
+      action: string;
+      details: string;
+    }>;
+  };
 }
 
-// Configuración para la generación de imágenes
-export interface ImageGenerationConfig {
-  model: 'dall-e-3';
-  quality: 'standard' | 'hd';
-  style: 'natural' | 'vivid';
-  size: '1024x1024' | '1792x1024' | '1024x1792';
-}
-
-// Respuesta de la generación de imagen
-export interface ImageGenerationResponse {
-  success: boolean;
-  imageUrl?: string;
-  error?: string;
+// Risk assessment result
+export interface RiskAssessment {
+  map: RiskMap;
+  score: number;
+  criticalRisks: number;
+  highRisks: number;
+  mediumRisks: number;
+  lowRisks: number;
 }

@@ -38,6 +38,10 @@
 - Revisión de reglas de Firestore: acceso mínimo necesario, sin exposición de datos.
 - Revisión de variables de entorno: sin secretos expuestos, documentación clara.
 - Unificación de la lógica de generación de herramientas SST (ATS, PTS, Matriz de Riesgos) usando el componente ToolGenerator.
+- Mejora de la herramienta ATS para integrar la búsqueda de legislación aplicable (vía Brave Search MCP) en la generación del Análisis de Trabajo Seguro.
+- Incorporación de botones de asistencia con IA en la herramienta ATS para los campos de actividades, equipos y materiales, utilizando la funcionalidad existente de `ToolGenerator`.
+- Reestructuración de la salida de la herramienta ATS para presentar los resultados en un formato de tabla detallado, mejorando la legibilidad y utilidad del análisis.
+- Implementación de búsqueda automática de legislación en el backend para la herramienta ATS, utilizando Brave Search (vía MCP) y resumen con Azure OpenAI.
 
 ## Consideraciones de escalabilidad
 

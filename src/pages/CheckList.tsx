@@ -1,5 +1,5 @@
 import { useState } from 'react'; // Remove React import
-import { generateChecklist } from '../services/openai';
+import { generateChecklist } from '../services/aiService'; // Updated import path
 import ChecklistForm from '../components/checklist/ChecklistForm';
 import ChecklistViewer from '../components/checklist/ChecklistViewer';
 // import DashboardNavbar from '../components/DashboardNavbar'; // Si se necesita de nuevo
