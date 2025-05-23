@@ -1,5 +1,7 @@
 import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
 import { CompanyProfile } from '../types/company';
+import { getAuth, getIdToken } from 'firebase/auth';
+import { app } from '../../firebase';
 
 const client = new OpenAIClient(
   import.meta.env.VITE_AZURE_OPENAI_ENDPOINT,
@@ -20,11 +22,18 @@ export const getSuggestionsByEtapa = async (
   companyProfile: CompanyProfile | null
 ): Promise<AISuggestion[]> => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/ai/suggestions`, {
+    const auth = getAuth(app);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Usuario no autenticado.');
+    }
+    const idToken = await getIdToken(currentUser);
+
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/suggestions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_AZURE_OPENAI_API_KEY}`
+        'Authorization': `Bearer ${idToken}`
       },
       body: JSON.stringify({
         etapa,

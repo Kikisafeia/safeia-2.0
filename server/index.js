@@ -2,8 +2,42 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import admin from 'firebase-admin';
+import { OpenAIClient, AzureKeyCredential } from '@azure/openai';
+import fs from 'fs'; // Import fs for file system checks
 
 dotenv.config();
+
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (serviceAccountPath) {
+    try {
+      // Check if the service account file exists
+      if (fs.existsSync(serviceAccountPath)) {
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccountPath)
+        });
+        console.log('Firebase Admin SDK initialized with service account credentials.');
+      } else {
+        console.warn(`GOOGLE_APPLICATION_CREDENTIALS is set but file not found at: ${serviceAccountPath}. Falling back to default initialization.`);
+        admin.initializeApp();
+      }
+    } catch (error) {
+      console.error('Error initializing Firebase Admin SDK with service account:', error);
+      console.log('Falling back to default Firebase Admin SDK initialization.');
+      admin.initializeApp(); // Fallback to default initialization
+    }
+  } else {
+    // For environments like Google Cloud Run/Functions, or local development without explicit credentials,
+    // this will use default credentials or attempt to discover them.
+    console.log('GOOGLE_APPLICATION_CREDENTIALS not set. Initializing Firebase Admin SDK with default credentials.');
+    admin.initializeApp();
+  }
+} else {
+  console.log('Firebase Admin SDK already initialized.');
+}
+
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -40,6 +74,117 @@ app.get('/api/agents', (req, res) => {
   } catch (error) {
     console.error('Error fetching agents:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// New Endpoint for AI Suggestions
+app.post('/api/ai/suggestions', async (req, res) => {
+  try {
+    // 1. Get and verify Firebase ID token from Authorization header
+    const authorizationHeader = req.headers.authorization;
+    if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or malformed token' });
+    }
+    const idToken = authorizationHeader.split('Bearer ')[1];
+
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (error) {
+      console.error('Error verifying Firebase ID token:', error);
+      return res.status(403).json({ error: 'Forbidden: Invalid token' });
+    }
+    // const userId = decodedToken.uid; // userId can be used for logging or further checks
+
+    // 2. Extract data from request body
+    const { etapa, categoria, companyProfile, prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Bad Request: Missing prompt' });
+    }
+    if (!etapa || !categoria) {
+      return res.status(400).json({ error: 'Bad Request: Missing etapa or categoria' });
+    }
+
+    // 3. Initialize Azure OpenAI client with server-side env vars
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+    const azureDeploymentName = process.env.AZURE_OPENAI_DEPLOYMENT;
+
+    const missingAzureVars = [];
+    if (!azureEndpoint) missingAzureVars.push('AZURE_OPENAI_ENDPOINT');
+    if (!azureApiKey) missingAzureVars.push('AZURE_OPENAI_API_KEY');
+    if (!azureDeploymentName) missingAzureVars.push('AZURE_OPENAI_DEPLOYMENT');
+
+    if (missingAzureVars.length > 0) {
+      const errorMessage = `Internal server error: The following Azure OpenAI environment variables are not set: ${missingAzureVars.join(', ')}`;
+      console.error(errorMessage);
+      return res.status(500).json({ error: errorMessage });
+    }
+
+    const azureClient = new OpenAIClient(azureEndpoint, new AzureKeyCredential(azureApiKey));
+
+    // 4. Make call to Azure OpenAI
+    // The prompt is already constructed by the client, including companyProfile details
+    const messages = [
+      { role: "system", content: "Eres un asistente experto en SG-SST (Sistema de Gestión de Seguridad y Salud en el Trabajo)." },
+      { role: "user", content: prompt }
+    ];
+
+    const result = await azureClient.getChatCompletions(azureDeploymentName, messages, {
+      maxTokens: 800, // Adjust as needed
+      // temperature: 0.7, // Adjust as needed
+    });
+
+    let suggestionsContent = "";
+    if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+      suggestionsContent = result.choices[0].message.content || "";
+    }
+
+    // Attempt to parse the suggestionsContent if it's a JSON string representing an array,
+    // or wrap it if it's plain text.
+    // For now, we'll assume the frontend expects an array of AISuggestion objects.
+    // And that Azure returns a text that we can parse or use directly.
+    // This part might need refinement based on actual Azure OpenAI output format.
+    let suggestionsList = [];
+    try {
+      // If Azure returns a JSON string of suggestions:
+      // suggestionsList = JSON.parse(suggestionsContent);
+      // For now, let's assume Azure returns plain text and we create one suggestion object.
+      // The client expects: { content: string, confidence: number, category: string }
+      // We are only getting content from Azure directly. Confidence and category are not part of this basic setup.
+      // Let's return the raw content as a single suggestion for now.
+      // The frontend currently expects AISuggestion[], so we'll wrap it.
+      if (suggestionsContent) {
+        suggestionsList.push({
+          content: suggestionsContent,
+          confidence: 0.9, // Placeholder confidence
+          category: categoria // Use the input category
+        });
+      }
+    } catch (parseError) {
+      console.error("Error parsing suggestions from AI, returning raw content:", parseError);
+      // Fallback if parsing fails, though not strictly needed with the current single-push approach
+      if (suggestionsContent) {
+         suggestionsList.push({ content: suggestionsContent, confidence: 0.8, category: categoria });
+      }
+    }
+
+    // 5. Send response
+    res.json(suggestionsList); // Client expects AISuggestion[]
+
+  } catch (error) {
+    console.error('Error in /api/ai/suggestions:', error);
+    if (error.code === 'auth/id-token-expired') {
+        return res.status(401).json({ error: 'Unauthorized: Token expired' });
+    }
+    // Check if it's an Azure error
+    if (error.statusCode && error.message) { // Azure SDK errors often have statusCode
+        return res.status(error.statusCode).json({ error: `Azure API error: ${error.message}` });
+    }
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -80,7 +225,7 @@ app.post('/api/agents/:id/chat', async (req, res) => {
     console.log('Sending to Dify:', {
       url: `${DIFY_API_URL}/chat-messages`,
       headers: {
-        'Authorization': 'Bearer ' + DIFY_API_KEY.substring(0, 10) + '...',
+        'Authorization': '[REDACTED]', // Redact Dify API Key from logs
         'Content-Type': 'application/json'
       },
       messageData
