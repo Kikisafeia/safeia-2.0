@@ -104,8 +104,6 @@ function App() {
               </PrivateRoute>
             } />
 
-            <Route path="/pricing" element={<Pricing />} />
-
             {/* Gestión de SST */}
             <Route path="/herramientas-sst/sgsst-pymes" element={
               <PrivateRoute>
