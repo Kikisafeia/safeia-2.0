@@ -669,6 +669,18 @@ class Controller {
     await this.initClineWithTask(task)
   }
 }
+
+## Gestión de Variables de Entorno
+
+Las variables de entorno en el proyecto SAFEIA se gestionan a través de archivos `.env` para diferentes entornos (desarrollo, producción, etc.). Estas variables son cruciales para configurar las claves API, endpoints de servicios externos y otras configuraciones sensibles.
+
+### Consideraciones Clave:
+
+-   **Seguridad**: Las claves API sensibles, como las de Azure OpenAI, se manejan de forma segura. En el frontend, estas claves no se exponen directamente; en su lugar, las llamadas a los servicios de IA se enrutan a través de un backend proxy (`server/index.js`). Esto mitiga la vulnerabilidad de exposición de claves API en el lado del cliente.
+-   **Configuración de Azure OpenAI**: Las variables específicas para Azure OpenAI (API Key, Endpoint, Deployment, API Version) se almacenan en el archivo `.env` del frontend para su uso en el entorno de desarrollo y en `server/.env` para el backend proxy.
+-   **Acceso**: Las variables de entorno se acceden a través de `process.env` en el backend y `import.meta.env` en el frontend (gracias a Vite).
+-   **Documentación**: Es fundamental mantener la documentación actualizada sobre las variables de entorno requeridas y su propósito.
+
 Conclusion
 This guide provides a comprehensive overview of the Cline extension architecture, with special focus on state management, data persistence, and code organization. Following these patterns ensures robust feature implementation with proper state handling across the extension's components.
 
