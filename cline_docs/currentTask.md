@@ -33,6 +33,10 @@ Esta tarea contribuye al objetivo de "Ofrecer una experiencia de usuario moderna
     *   Actualizar `cline_docs/codebaseSummary.md` para reflejar los cambios en la UI.
     *   Actualizar `cline_docs/projectRoadmap.md` para incluir la mejora de la consistencia visual.
 
+## Tareas Completadas Recientemente
+
+- Adición de variables de entorno de Azure OpenAI al archivo `.env`.
+
 ## Pasos Pendientes / Próximos Pasos
 
 - Iniciar con el Paso 1: Identificar Definiciones de Color Existentes.

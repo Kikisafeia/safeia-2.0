@@ -42,6 +42,7 @@
 - Incorporación de botones de asistencia con IA en la herramienta ATS para los campos de actividades, equipos y materiales, utilizando la funcionalidad existente de `ToolGenerator`.
 - Reestructuración de la salida de la herramienta ATS para presentar los resultados en un formato de tabla detallado, mejorando la legibilidad y utilidad del análisis.
 - Implementación de búsqueda automática de legislación en el backend para la herramienta ATS, utilizando Brave Search (vía MCP) y resumen con Azure OpenAI.
+- Adición de variables de entorno de Azure OpenAI al archivo .env.
 
 ## Consideraciones de escalabilidad
 

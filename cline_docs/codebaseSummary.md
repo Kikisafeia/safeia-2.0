@@ -61,6 +61,7 @@
     - **Se eliminó el archivo problemático y no utilizado `src/services/ai.ts`.**
     - **Se refactorizaron las páginas de herramientas que utilizan `ToolGenerator` (ej. `MatrizRiesgos.tsx`, `ATS.tsx`, `PTS.tsx`) para asegurar que importan y utilizan correctamente el servicio centralizado `src/services/aiService.ts` y manejan adecuadamente los tipos de datos para las funciones de generación, eliminando referencias a `azureOpenAI.ts` (ya eliminado).**
     - **Se configuró el backend proxy (`server/index.js`) con las variables de entorno correctas para Azure OpenAI en `server/.env`, resolviendo errores de comunicación.**
+    - **Se agregaron las variables de entorno de Azure OpenAI al archivo `.env` del frontend.**
 - **Se corrigió un error en `src/services/audit.ts`**: La función `generateAuditFindings` ahora maneja de forma segura los casos en que el parámetro `hallazgos` es `undefined`, previniendo un `TypeError`.
 - **Se mejoró la herramienta ATS (`src/pages/herramientas/ATS.tsx` y `src/services/aiService.ts`):**
     - Se incluyó el campo "Sector Industrial" en los datos enviados al servicio de IA (`generateDAS`) para generar análisis más precisos.
