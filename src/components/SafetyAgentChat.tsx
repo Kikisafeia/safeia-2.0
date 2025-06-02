@@ -309,6 +309,9 @@ export default function SafetyAgentChat() {
               >
                 <div
                   className="prose max-w-none"
+                  // Ensure that the content passed to dangerouslySetInnerHTML is sanitized.
+                  // Currently, this is correctly handled by using DOMPurify.sanitize
+                  // in conjunction with the output of renderMarkdown.
                   dangerouslySetInnerHTML={{
                     __html: DOMPurify.sanitize(renderMarkdown(message.content))
                   }}
