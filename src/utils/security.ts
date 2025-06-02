@@ -3,7 +3,36 @@
  */
 
 /**
- * Sanitiza el input para prevenir XSS y otros ataques
+ * @module securityUtils
+ */
+
+/**
+ * Sanitiza una cadena de texto para reducir el riesgo de XSS.
+ * 
+ * **Importante sobre la prevención de XSS en React:**
+ * - **JSX es la primera línea de defensa:** React (cuando se usa JSX) automáticamente escapa
+ *   los valores insertados en el DOM. Por ejemplo, `<div>{userInput}</div>` es seguro
+ *   contra XSS porque React convierte caracteres especiales como `<` y `>` en sus
+ *   entidades HTML (`&lt;` y `&gt;`). Esta es la forma principal y más efectiva
+ *   de prevenir XSS en componentes React.
+ * 
+ * - **Este sanitizador es un enfoque de lista negra:** La función `sanitizeInput` a continuación
+ *   intenta eliminar o escapar patrones conocidos como peligrosos. Sin embargo, las listas negras
+ *   son inherentemente imperfectas y podrían no cubrir todas las posibles vulnerabilidades XSS.
+ *   Debe usarse con precaución y principalmente para:
+ *     a) Contextos que no son HTML (por ejemplo, si el input se usa en atributos `href` de forma insegura,
+ *        o en logs del lado del servidor donde el HTML no se interpreta directamente pero podría
+ *        serlo en otro sistema).
+ *     b) Como una medida de defensa en profundidad, no como la única protección.
+ * 
+ * - **Para renderizar HTML de fuentes no confiables:** Si necesitas renderizar HTML que proviene
+ *   de una fuente no confiable (por ejemplo, un editor WYSIWYG donde los usuarios pueden ingresar
+ *   HTML enriquecido), NO confíes solo en esta función. En su lugar, usa una biblioteca robusta
+ *   diseñada específicamente para la sanitización de HTML, como DOMPurify. DOMPurify analiza
+ *   el HTML, elimina cualquier contenido malicioso y devuelve HTML seguro.
+ * 
+ * @param {string} input - La cadena de texto a sanitizar.
+ * @returns {string} La cadena de texto sanitizada.
  */
 export function sanitizeInput(input: string): string {
   if (!input) return '';
@@ -36,8 +65,9 @@ export function validateUrl(url: string): boolean {
       return false;
     }
     // Verificar dominio permitido
-    return SECURITY_CONSTANTS.ALLOWED_DOMAINS.some(domain => 
-      parsedUrl.hostname.endsWith(domain)
+    // El hostname debe ser exactamente uno de los dominios permitidos o un subdominio directo.
+    return SECURITY_CONSTANTS.ALLOWED_DOMAINS.some(domain =>
+      parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
     );
   } catch {
     return false;

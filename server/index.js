@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
@@ -48,6 +49,7 @@ const DIFY_API_KEY = process.env.DIFY_API_KEY; // Usar Service Secret Key aquí
 
 app.use(cors());
 app.use(express.json());
+app.use(helmet()); // Add helmet middleware for security headers
 
 // Lista predefinida de agentes
 const agents = [
@@ -72,8 +74,8 @@ app.get('/api/agents', (req, res) => {
   try {
     res.json(agents);
   } catch (error) {
-    console.error('Error fetching agents:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Detailed error fetching agents:', error); // Log detailed error
+    res.status(500).json({ error: 'An unexpected error occurred while fetching agents.' }); // Send generic message
   }
 });
 
@@ -119,9 +121,9 @@ app.post('/api/ai/suggestions', async (req, res) => {
     if (!azureDeploymentName) missingAzureVars.push('AZURE_OPENAI_DEPLOYMENT');
 
     if (missingAzureVars.length > 0) {
-      const errorMessage = `Internal server error: The following Azure OpenAI environment variables are not set: ${missingAzureVars.join(', ')}`;
-      console.error(errorMessage);
-      return res.status(500).json({ error: errorMessage });
+      const detailErrorMessage = `Internal server error: The following Azure OpenAI environment variables are not set: ${missingAzureVars.join(', ')}`;
+      console.error(detailErrorMessage); // Log detailed error
+      return res.status(500).json({ error: 'AI service configuration error' }); // Send generic message
     }
 
     const azureClient = new OpenAIClient(azureEndpoint, new AzureKeyCredential(azureApiKey));
@@ -176,15 +178,21 @@ app.post('/api/ai/suggestions', async (req, res) => {
     res.json(suggestionsList); // Client expects AISuggestion[]
 
   } catch (error) {
-    console.error('Error in /api/ai/suggestions:', error);
+    console.error('Detailed error in /api/ai/suggestions:', error); // Log detailed error
     if (error.code === 'auth/id-token-expired') {
-        return res.status(401).json({ error: 'Unauthorized: Token expired' });
+        // Specific, user-friendly message for expired token
+        return res.status(401).json({ error: 'Unauthorized: Token expired. Please log in again.' });
     }
-    // Check if it's an Azure error
-    if (error.statusCode && error.message) { // Azure SDK errors often have statusCode
-        return res.status(error.statusCode).json({ error: `Azure API error: ${error.message}` });
+    // Check if it's an Azure SDK error (these often have a statusCode property)
+    if (error.statusCode) { 
+        // Log the specific Azure error message for server-side debugging
+        console.error(`Azure API error details: Status ${error.statusCode}, Message: ${error.message}`);
+        // Send a generic message to the client, but preserve original status code if it's a client-side issue (4xx)
+        const clientStatusCode = error.statusCode >= 500 ? 500 : error.statusCode;
+        return res.status(clientStatusCode).json({ error: 'Error communicating with AI service.' });
     }
-    res.status(500).json({ error: 'Internal server error' });
+    // For other types of errors in this block
+    res.status(500).json({ error: 'An unexpected error occurred while processing your request.' });
   }
 });
 
@@ -193,21 +201,41 @@ app.get('/api/agents/:id', (req, res) => {
   try {
     const agent = agents.find(a => a.id === req.params.id);
     if (!agent) {
+      // This is a client error, so a specific message is appropriate
       return res.status(404).json({ error: 'Agente no encontrado' });
     }
     res.json(agent);
   } catch (error) {
-    console.error('Error fetching agent:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Detailed error fetching agent by ID:', error); // Log detailed error
+    res.status(500).json({ error: 'An unexpected error occurred while fetching agent details.' }); // Send generic message
   }
 });
 
 // Endpoint para el chat con un agente usando Dify
 app.post('/api/agents/:id/chat', async (req, res) => {
   try {
+    // 1. Get and verify Firebase ID token from Authorization header
+    const authorizationHeader = req.headers.authorization;
+    if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or malformed token' });
+    }
+    const idToken = authorizationHeader.split('Bearer ')[1];
+
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (error) {
+      console.error('Error verifying Firebase ID token for chat:', error);
+      if (error.code === 'auth/id-token-expired') {
+        return res.status(401).json({ error: 'Unauthorized: Token expired. Please log in again.' });
+      }
+      return res.status(403).json({ error: 'Forbidden: Invalid token' });
+    }
+
+    // Token is valid, proceed with existing logic, using decodedToken.uid for user
     const { query, conversation_id, files } = req.body;
 
-    console.log('Received request body:', req.body);
+    // console.log('Received request body (UID will be from token):', req.body); // req.body.user will be ignored
 
     // Preparar el mensaje para Dify
     const messageData = {
@@ -215,7 +243,7 @@ app.post('/api/agents/:id/chat', async (req, res) => {
       query,
       response_mode: 'streaming',
       conversation_id: conversation_id || undefined,
-      user: req.body.user || 'default-user'
+      user: decodedToken.uid // Use Firebase UID as the user identifier for Dify
     };
 
     if (files && files.length > 0) {
@@ -250,12 +278,30 @@ app.post('/api/agents/:id/chat', async (req, res) => {
 
     if (!difyResponse.ok) {
       const errorText = await difyResponse.text();
-      console.error('Error from Dify:', {
+      // Log detailed Dify error server-side
+      console.error('Error from Dify API:', {
         status: difyResponse.status,
-        headers: Object.fromEntries(difyResponse.headers.entries()),
-        body: errorText
+        headers: Object.fromEntries(difyResponse.headers.entries()), // Log Dify headers
+        body: errorText // Log Dify error body
       });
-      throw new Error(`Dify API error: ${difyResponse.status} - ${errorText}`);
+
+      // Determine appropriate status code for the client
+      let clientStatusCode = 500; // Default to 500 Internal Server Error
+      let clientErrorMessage = 'Error communicating with chat agent.';
+      
+      if (difyResponse.status >= 400 && difyResponse.status < 500) {
+        // If Dify returns a 4xx error, it might be a client-side issue (e.g., bad input to Dify)
+        // We can choose to reflect a 400 or a generic 500 to our client.
+        // For now, let's send a generic 500 to avoid revealing too much about Dify's specific validation.
+        // clientStatusCode = difyResponse.status; // Option: reflect Dify's 4xx status
+        clientErrorMessage = 'Failed to process chat request with agent.'; // More specific if we assume it's a bad request to Dify
+      } else if (difyResponse.status >= 500 && difyResponse.status <= 599) {
+        clientStatusCode = 502; // Bad Gateway for 5xx errors from Dify, indicating an issue with the upstream service
+        clientErrorMessage = 'Chat agent service is temporarily unavailable.';
+      }
+      
+      // Send generic error message to client
+      return res.status(clientStatusCode).json({ error: clientErrorMessage });
     }
 
     // Si es streaming, configurar SSE
@@ -277,8 +323,16 @@ app.post('/api/agents/:id/chat', async (req, res) => {
       res.json(data);
     }
   } catch (error) {
-    console.error('Error in chat:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    // Log detailed error for any other unexpected issues in this endpoint
+    console.error('Detailed error in /api/agents/:id/chat:', error);
+
+    // Check if it's a Firebase auth error that slipped through (should be caught above)
+    if (error.code && error.code.startsWith('auth/')) {
+        return res.status(403).json({ error: 'Forbidden: Authentication error.' });
+    }
+    // Dify API errors are handled above by checking difyResponse.ok
+    // This catch block is for other unexpected errors
+    res.status(500).json({ error: 'An unexpected error occurred while processing your chat request.' });
   }
 });
 
@@ -287,12 +341,13 @@ app.get('/api/agents/:id/status', (req, res) => {
   try {
     const agent = agents.find(a => a.id === req.params.id);
     if (!agent) {
+      // This is a client error, so a specific message is appropriate
       return res.status(404).json({ error: 'Agente no encontrado' });
     }
     res.json({ status: agent.status });
   } catch (error) {
-    console.error('Error fetching agent status:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Detailed error fetching agent status:', error); // Log detailed error
+    res.status(500).json({ error: 'An unexpected error occurred while fetching agent status.' }); // Send generic message
   }
 });
 
