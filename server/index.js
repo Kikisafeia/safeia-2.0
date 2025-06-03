@@ -13,26 +13,27 @@ dotenv.config();
 if (!admin.apps.length) {
   const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (serviceAccountPath) {
+    // GOOGLE_APPLICATION_CREDENTIALS is set, attempt to use it.
+    if (!fs.existsSync(serviceAccountPath)) {
+      console.error(`CRITICAL: GOOGLE_APPLICATION_CREDENTIALS is set to "${serviceAccountPath}", but the file does not exist.`);
+      console.error('Firebase Admin SDK initialization failed. Application will not start.');
+      process.exit(1); // Exit if service account file is missing
+    }
     try {
-      // Check if the service account file exists
-      if (fs.existsSync(serviceAccountPath)) {
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccountPath)
-        });
-        console.log('Firebase Admin SDK initialized with service account credentials.');
-      } else {
-        console.warn(`GOOGLE_APPLICATION_CREDENTIALS is set but file not found at: ${serviceAccountPath}. Falling back to default initialization.`);
-        admin.initializeApp();
-      }
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccountPath)
+      });
+      console.log('Firebase Admin SDK initialized with service account credentials.');
     } catch (error) {
-      console.error('Error initializing Firebase Admin SDK with service account:', error);
-      console.log('Falling back to default Firebase Admin SDK initialization.');
-      admin.initializeApp(); // Fallback to default initialization
+      console.error(`CRITICAL: Error initializing Firebase Admin SDK with service account file "${serviceAccountPath}":`, error);
+      console.error('Firebase Admin SDK initialization failed. Application will not start.');
+      process.exit(1); // Exit if service account file is invalid
     }
   } else {
-    // For environments like Google Cloud Run/Functions, or local development without explicit credentials,
-    // this will use default credentials or attempt to discover them.
-    console.log('GOOGLE_APPLICATION_CREDENTIALS not set. Initializing Firebase Admin SDK with default credentials.');
+    // GOOGLE_APPLICATION_CREDENTIALS is NOT set. Fallback to default initialization.
+    // This is suitable for environments like Google Cloud Run/Functions or local development
+    // where default credentials might be available or no credentials are required for certain emulated services.
+    console.log('GOOGLE_APPLICATION_CREDENTIALS not set. Initializing Firebase Admin SDK with default credentials (suitable for emulators or cloud environments with auto-discovery).');
     admin.initializeApp();
   }
 } else {
@@ -74,7 +75,7 @@ app.get('/api/agents', (req, res) => {
   try {
     res.json(agents);
   } catch (error) {
-    console.error('Detailed error fetching agents:', error); // Log detailed error
+    console.error('Error in /api/agents:', error.message, error.stack);
     res.status(500).json({ error: 'An unexpected error occurred while fetching agents.' }); // Send generic message
   }
 });
@@ -94,7 +95,10 @@ app.post('/api/ai/suggestions', async (req, res) => {
       decodedToken = await admin.auth().verifyIdToken(idToken);
     } catch (error) {
       console.error('Error verifying Firebase ID token:', error);
-      return res.status(403).json({ error: 'Forbidden: Invalid token' });
+      if (error.code === 'auth/id-token-expired') {
+        return res.status(401).json({ error: 'Unauthorized: Token expired. Please log in again.' });
+      }
+      return res.status(403).json({ error: 'Forbidden: Invalid or expired token.' }); // Generic message for other token errors
     }
     // const userId = decodedToken.uid; // userId can be used for logging or further checks
 
@@ -109,8 +113,6 @@ app.post('/api/ai/suggestions', async (req, res) => {
     }
 
     // 3. Initialize Azure OpenAI client with server-side env vars
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
     const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
     const azureDeploymentName = process.env.AZURE_OPENAI_DEPLOYMENT;
@@ -179,10 +181,10 @@ app.post('/api/ai/suggestions', async (req, res) => {
 
   } catch (error) {
     console.error('Detailed error in /api/ai/suggestions:', error); // Log detailed error
-    if (error.code === 'auth/id-token-expired') {
-        // Specific, user-friendly message for expired token
-        return res.status(401).json({ error: 'Unauthorized: Token expired. Please log in again.' });
-    }
+    // Firebase auth/id-token-expired is handled by the specific try-catch for verifyIdToken.
+    // If it somehow reaches here and is an auth error, it would be a generic 500.
+    // The most common errors here would be Azure SDK errors or other unexpected issues.
+
     // Check if it's an Azure SDK error (these often have a statusCode property)
     if (error.statusCode) { 
         // Log the specific Azure error message for server-side debugging
@@ -191,7 +193,8 @@ app.post('/api/ai/suggestions', async (req, res) => {
         const clientStatusCode = error.statusCode >= 500 ? 500 : error.statusCode;
         return res.status(clientStatusCode).json({ error: 'Error communicating with AI service.' });
     }
-    // For other types of errors in this block
+    // For other types of errors in this block, log message and stack for better debugging without logging entire object
+    console.error('Unhandled error in /api/ai/suggestions:', error.message, error.stack);
     res.status(500).json({ error: 'An unexpected error occurred while processing your request.' });
   }
 });
@@ -206,7 +209,7 @@ app.get('/api/agents/:id', (req, res) => {
     }
     res.json(agent);
   } catch (error) {
-    console.error('Detailed error fetching agent by ID:', error); // Log detailed error
+    console.error('Error in /api/agents/:id:', error.message, error.stack);
     res.status(500).json({ error: 'An unexpected error occurred while fetching agent details.' }); // Send generic message
   }
 });
@@ -229,7 +232,7 @@ app.post('/api/agents/:id/chat', async (req, res) => {
       if (error.code === 'auth/id-token-expired') {
         return res.status(401).json({ error: 'Unauthorized: Token expired. Please log in again.' });
       }
-      return res.status(403).json({ error: 'Forbidden: Invalid token' });
+      return res.status(403).json({ error: 'Forbidden: Invalid or expired token.' }); // Generic message for other token errors
     }
 
     // Token is valid, proceed with existing logic, using decodedToken.uid for user
@@ -287,19 +290,24 @@ app.post('/api/agents/:id/chat', async (req, res) => {
 
       // Determine appropriate status code for the client
       let clientStatusCode = 500; // Default to 500 Internal Server Error
-      let clientErrorMessage = 'Error communicating with chat agent.';
-      
+      let clientErrorMessage = 'An error occurred while communicating with the chat service.'; // Default generic message
+
       if (difyResponse.status >= 400 && difyResponse.status < 500) {
-        // If Dify returns a 4xx error, it might be a client-side issue (e.g., bad input to Dify)
-        // We can choose to reflect a 400 or a generic 500 to our client.
-        // For now, let's send a generic 500 to avoid revealing too much about Dify's specific validation.
-        // clientStatusCode = difyResponse.status; // Option: reflect Dify's 4xx status
-        clientErrorMessage = 'Failed to process chat request with agent.'; // More specific if we assume it's a bad request to Dify
+        // Dify 4xx error (e.g., bad request to Dify, invalid inputs based on Dify's expectations)
+        // Log detailed Dify error server-side (already done above)
+        // Send a generic client-facing error message. Avoid reflecting Dify's specific error structure.
+        clientStatusCode = difyResponse.status; // Or use a generic 400 if preferred: 400;
+        clientErrorMessage = 'Failed to process your request with the chat service. Please check your input.';
       } else if (difyResponse.status >= 500 && difyResponse.status <= 599) {
-        clientStatusCode = 502; // Bad Gateway for 5xx errors from Dify, indicating an issue with the upstream service
-        clientErrorMessage = 'Chat agent service is temporarily unavailable.';
+        // Dify 5xx error (e.g., Dify server error)
+        // Log detailed Dify error server-side (already done above)
+        // Send a generic server-side error message to the client.
+        clientStatusCode = 502; // Bad Gateway, indicating an issue with the upstream Dify service
+        clientErrorMessage = 'The chat service is temporarily unavailable. Please try again later.';
       }
-      
+      // For other non-ok statuses that might not fit 4xx/5xx (less common for HTTP APIs but to be safe)
+      // The default clientStatusCode and clientErrorMessage will be used.
+
       // Send generic error message to client
       return res.status(clientStatusCode).json({ error: clientErrorMessage });
     }
@@ -326,12 +334,11 @@ app.post('/api/agents/:id/chat', async (req, res) => {
     // Log detailed error for any other unexpected issues in this endpoint
     console.error('Detailed error in /api/agents/:id/chat:', error);
 
-    // Check if it's a Firebase auth error that slipped through (should be caught above)
-    if (error.code && error.code.startsWith('auth/')) {
-        return res.status(403).json({ error: 'Forbidden: Authentication error.' });
-    }
-    // Dify API errors are handled above by checking difyResponse.ok
-    // This catch block is for other unexpected errors
+    // Firebase auth errors (including 'auth/id-token-expired') are handled by the specific try-catch for verifyIdToken.
+    // If an auth error somehow reaches here, it would be a generic 500.
+    // Dify API errors are handled above by checking difyResponse.ok.
+    // This catch block is for other unexpected errors not caught by the more specific handlers.
+    console.error('Unhandled error in /api/agents/:id/chat:', error.message, error.stack);
     res.status(500).json({ error: 'An unexpected error occurred while processing your chat request.' });
   }
 });
@@ -346,7 +353,7 @@ app.get('/api/agents/:id/status', (req, res) => {
     }
     res.json({ status: agent.status });
   } catch (error) {
-    console.error('Detailed error fetching agent status:', error); // Log detailed error
+    console.error('Error in /api/agents/:id/status:', error.message, error.stack);
     res.status(500).json({ error: 'An unexpected error occurred while fetching agent status.' }); // Send generic message
   }
 });

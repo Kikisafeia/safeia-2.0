@@ -5,9 +5,7 @@ import {
   Home,
   Wrench,
   User,
-  HelpCircle,
   Bot,
-  BookOpen,
   Menu,
   X,
   LogOut,
@@ -16,7 +14,7 @@ import {
 
 const DashboardNavbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { logout, currentUser } = useAuth();
+  const { logout } = useAuth();
   const location = useLocation();
 
   const navigation = [

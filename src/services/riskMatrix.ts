@@ -673,7 +673,7 @@ Proporciona un plan de control siguiendo la jerarquía de controles en este form
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content.trim();
+    const content = data?.choices?.[0]?.message?.content?.trim() ?? ''; // Added optional chaining and nullish coalescing
     
     // Función auxiliar para limpiar el contenido
     const cleanJsonString = (str: string) => {
@@ -688,7 +688,9 @@ Proporciona un plan de control siguiendo la jerarquía de controles en este form
     const attempts = [
       content,
       cleanJsonString(content),
+      // eslint-disable-next-line no-control-regex
       content.replace(/[\u0000-\u001F]+/g, ''), // Elimina caracteres de control
+      // eslint-disable-next-line no-control-regex
       cleanJsonString(content).replace(/[\u0000-\u001F]+/g, '')
     ];
 

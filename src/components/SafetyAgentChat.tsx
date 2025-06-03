@@ -55,13 +55,13 @@ export default function SafetyAgentChat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<MessageFile[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  // const [showHistory, setShowHistory] = useState(false); // Unused
   const [isTyping, setIsTyping] = useState(false);
-  const [textareaHeight, setTextareaHeight] = useState('auto');
+  // const [textareaHeight, setTextareaHeight] = useState('auto'); // Unused state variable and setter
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { checkTokens, consumeTokens, getTokenBalance, refreshTokens } = useTokens();
+  const { checkTokens, consumeTokens, /*getTokenBalance,*/ refreshTokens } = useTokens(); // getTokenBalance was unused
   const [availableTokens, setAvailableTokens] = useState<number>(0);
 
   const scrollToBottom = () => {
@@ -75,7 +75,14 @@ export default function SafetyAgentChat() {
   useEffect(() => {
     initializeConversation();
     updateTokenBalance();
-  }, []);
+
+    // Cleanup for selectedFiles object URLs on unmount
+    return () => {
+      selectedFiles.forEach(file => URL.revokeObjectURL(file.preview));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Deliberately empty to run only on mount and unmount for this cleanup logic.
+          // initializeConversation and updateTokenBalance are stable or should be if they cause issues.
 
   const updateTokenBalance = async () => {
     await refreshTokens();
@@ -217,15 +224,16 @@ export default function SafetyAgentChat() {
     });
   };
 
-  const handleNewConversation = async () => {
-    // Limpiar previews de archivos
-    selectedFiles.forEach(file => URL.revokeObjectURL(file.preview));
-    setSelectedFiles([]);
-    setMessages([]);
-    setConversationId(null);
-    setError(null);
-    await initializeConversation();
-  };
+  // handleNewConversation was unused
+  // const handleNewConversation = async () => {
+  //   // Limpiar previews de archivos
+  //   selectedFiles.forEach(file => URL.revokeObjectURL(file.preview));
+  //   setSelectedFiles([]);
+  //   setMessages([]);
+  //   setConversationId(null);
+  //   setError(null);
+  //   await initializeConversation();
+  // };
 
   const adjustTextareaHeight = () => {
     if (textareaRef.current) {
@@ -248,22 +256,23 @@ export default function SafetyAgentChat() {
     adjustTextareaHeight();
   }, [input]);
 
-  const handleDifyMessage = (event: { type: string; data: string }) => {
-    try {
-      const data = JSON.parse(event.data);
+  // handleDifyMessage was unused and referenced undefined currentMessageId
+  // const handleDifyMessage = (event: { type: string; data: string }) => {
+  //   try {
+  //     const data = JSON.parse(event.data);
       
-      if (data.event === 'message' || data.event === 'agent_message') {
-        const content = typeof data.data?.answer === 'string' ? data.data.answer : '';
-        setMessages(prev => prev.map(msg => 
-          msg.id === currentMessageId 
-            ? { ...msg, content }
-            : msg
-        ));
-      }
-    } catch (error) {
-      console.error('Error processing message:', error);
-    }
-  };
+  //     if (data.event === 'message' || data.event === 'agent_message') {
+  //       const content = typeof data.data?.answer === 'string' ? data.data.answer : '';
+  //       setMessages(prev => prev.map(msg =>
+  //         msg.id === currentMessageId
+  //           ? { ...msg, content }
+  //           : msg
+  //       ));
+  //     }
+  //   } catch (error) {
+  //     console.error('Error processing message:', error);
+  //   }
+  // };
 
   const renderMarkdown = (content: any): string => {
     if (typeof content !== 'string') {
@@ -383,7 +392,7 @@ export default function SafetyAgentChat() {
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
-                adjustTextareaHeight();
+                // adjustTextareaHeight(); // Called in useEffect based on input change
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -395,7 +404,7 @@ export default function SafetyAgentChat() {
               }}
               placeholder="Escribe tu consulta sobre seguridad y prevención..."
               className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-safeia-yellow resize-none min-h-[40px] max-h-[120px]"
-              style={{ height: textareaHeight }}
+              // style={{ height: textareaHeight }} // textareaHeight state was removed
               disabled={isLoading}
               aria-label="Mensaje"
             />

@@ -1,5 +1,4 @@
 import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
-import { Message } from '../services/azureOpenAI';
 
 export async function POST(request: Request) {
   try {

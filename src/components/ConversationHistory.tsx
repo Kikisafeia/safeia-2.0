@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getConversationHistory, ConversationMessage } from '../services/conversationHistoryService';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function ConversationHistory({ conversationId }: ConversationHist
   const [hasMore, setHasMore] = useState(false);
   const [firstId, setFirstId] = useState<string | undefined>();
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -32,15 +32,18 @@ export default function ConversationHistory({ conversationId }: ConversationHist
     } finally {
       setLoading(false);
     }
-  };
+  }, [conversationId, firstId]); // Added dependencies for useCallback
 
   useEffect(() => {
     if (conversationId) {
-      setMessages([]);
-      setFirstId(undefined);
+      setMessages([]); // Reset messages when conversationId changes
+      setFirstId(undefined); // Reset pagination cursor
+      // Initial load or load when conversationId changes.
+      // loadHistory will be called here, and also directly by the "Load More" button.
+      // The useCallback ensures loadHistory has a stable identity if its own dependencies don't change.
       loadHistory();
     }
-  }, [conversationId]);
+  }, [conversationId, loadHistory]); // Added loadHistory as a dependency
 
   if (loading && messages.length === 0) {
     return (
