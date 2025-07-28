@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import { Firestore } from 'firebase/firestore';
-import { db } from '../firebase'; // Import the initialized db instance
+import { db } from '../config/firebase'; // Import the initialized db instance
 
 interface FirestoreContextType {
   db: Firestore | null;

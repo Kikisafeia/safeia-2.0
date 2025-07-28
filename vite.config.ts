@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
-    strictPort: true, 
+    port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
+    strictPort: false, 
     open: '/',
     proxy: {
       // Proxy más específico para /api/dify PRIMERO

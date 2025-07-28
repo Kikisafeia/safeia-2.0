@@ -35,6 +35,7 @@ Esta tarea contribuye al objetivo de "Ofrecer una experiencia de usuario moderna
 
 ## Tareas Completadas Recientemente
 
+- Refactorización de las interacciones con la API de Azure OpenAI para usar el proxy de backend y unificar las funciones auxiliares.
 - Adición de variables de entorno de Azure OpenAI al archivo `.env`.
 
 ## Pasos Pendientes / Próximos Pasos

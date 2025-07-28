@@ -14,6 +14,53 @@ dotenv.config({ path: path.resolve(__dirname, '.env') }); // Load .env from the 
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Helper function to get Azure OpenAI configuration
+function getAzureOpenAIConfig(type = 'chat') {
+  let endpoint, apiKey, deployment, apiVersion;
+
+  if (type === 'chat') {
+    endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    apiKey = process.env.AZURE_OPENAI_API_KEY;
+    deployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
+    apiVersion = process.env.AZURE_OPENAI_API_VERSION;
+  } else if (type === 'dalle') {
+    endpoint = process.env.AZURE_DALLE_ENDPOINT;
+    apiKey = process.env.AZURE_DALLE_API_KEY;
+    deployment = process.env.AZURE_DALLE_DEPLOYMENT;
+    apiVersion = process.env.AZURE_DALLE_API_VERSION;
+  } else {
+    throw new Error('Invalid Azure OpenAI type specified.');
+  }
+
+  if (!endpoint || !apiKey || !deployment || !apiVersion) {
+    throw new Error(`Azure OpenAI ${type} configuration missing in server environment variables.`);
+  }
+  return { endpoint, apiKey, deployment, apiVersion };
+}
+
+// Helper function to call Azure OpenAI API
+async function callAzureOpenAI(config, path, requestBody) {
+  const { endpoint, apiKey, deployment, apiVersion } = config;
+  const apiUrl = `${endpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/${path}?api-version=${apiVersion}`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    console.error('Error from Azure OpenAI service:', responseData);
+    throw new Error(responseData.error?.message || JSON.stringify(responseData));
+  }
+  return responseData;
+}
+
 // Configuración de Dify
 const DIFY_API_URL = process.env.DIFY_API_URL || 'https://api.dify.ai/v1';
 const DIFY_API_KEY = process.env.DIFY_API_KEY; // Usar Service Secret Key aquí
@@ -165,61 +212,28 @@ app.get('/api/agents/:id/status', (req, res) => {
 // Azure OpenAI Chat Completions Proxy Endpoint
 app.post('/api/azure/chat/completions', async (req, res) => {
   try {
-    const { messages, temperature, max_tokens, deploymentId, response_format } = req.body; // Added stream
+    const { messages, temperature, max_tokens, deploymentId, response_format } = req.body;
 
     if (!messages) {
       return res.status(400).json({ error: 'Missing "messages" in request body' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = deploymentId || process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI Chat configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI chat service.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
+    const config = getAzureOpenAIConfig('chat');
     const requestBody = {
       messages,
-      temperature: temperature !== undefined ? temperature : 0.7, // Default temperature
-      max_tokens: max_tokens !== undefined ? max_tokens : 2000,  // Default max_tokens
-      // stream: stream || false, // Default to non-streaming if not specified
+      temperature: temperature !== undefined ? temperature : 0.7,
+      max_tokens: max_tokens !== undefined ? max_tokens : 2000,
     };
 
     if (response_format) {
       requestBody.response_format = response_format;
     }
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI Chat service:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure OpenAI Chat service', 
-        details: responseData 
-      });
-    }
-
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
     res.json(responseData);
 
   } catch (error) {
-    console.error('RAW ERROR in /api/azure/chat/completions proxy:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('Error in /api/azure/chat/completions proxy:', error);
     res.status(500).json({ error: 'Internal server error in AI chat proxy', details: error.message });
   }
 });
@@ -233,52 +247,21 @@ app.post('/api/azure/images/generations', async (req, res) => {
       return res.status(400).json({ error: 'Missing "prompt" in request body' });
     }
 
-    const dalleEndpoint = process.env.AZURE_DALLE_ENDPOINT;
-    const apiKey = process.env.AZURE_DALLE_API_KEY; // Assuming same key, or use AZURE_DALLE_API_KEY if different
-    const dalleDeployment = deploymentId || process.env.AZURE_DALLE_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_DALLE_API_VERSION;
-
-    if (!dalleEndpoint || !apiKey || !dalleDeployment || !apiVersion) {
-      console.error('Azure DALL-E configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI image generation service.' });
-    }
-    
-    // Construct the full API URL correctly
-    // Example: https://YOUR_RESOURCE_NAME.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT_NAME/images/generations?api-version=2023-12-01-preview
-    const apiUrl = `${dalleEndpoint.replace(/\/$/, '')}/openai/deployments/${dalleDeployment}/images/generations?api-version=${apiVersion}`;
-
+    const config = getAzureOpenAIConfig('dalle');
     const requestBody = {
       prompt,
       n: n !== undefined ? n : 1,
       size: size !== undefined ? size : "1024x1024",
       quality: quality !== undefined ? quality : "standard",
-      style: style !== undefined ? style : "vivid", // DALL-E 3 default is vivid or natural
+      style: style !== undefined ? style : "vivid",
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure DALL-E service:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure DALL-E service', 
-        details: responseData 
-      });
-    }
-
+    const responseData = await callAzureOpenAI(config, 'images/generations', requestBody);
     res.json(responseData);
 
   } catch (error) {
     console.error('Error in /api/azure/images/generations proxy:', error);
-    res.status(500).json({ error: 'Internal server error in AI image generation proxy' });
+    res.status(500).json({ error: 'Internal server error in AI image generation proxy', details: error.message });
   }
 });
 
@@ -340,13 +323,8 @@ app.post('/api/legislation/search-ats', async (req, res) => {
         .join('\n\n---\n\n');
 
       if (snippetsToSummarize.trim()) {
-        const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-        const apiKey = process.env.AZURE_OPENAI_API_KEY;
-        const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-        const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-        if (azureEndpoint && apiKey && chatDeployment && apiVersion) {
-          const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
+        try {
+          const config = getAzureOpenAIConfig('chat');
           const summarizationPrompt = `Dada la siguiente información de resultados de búsqueda sobre legislación laboral en ${pais} para el sector ${sector}:\n\n${snippetsToSummarize}\n\nExtrae y resume concisamente las 2-3 leyes, decretos o normativas más importantes y pertinentes en un solo párrafo. Si hay URLs oficiales, menciónalas brevemente.`;
           
           const summaryPayload = {
@@ -358,28 +336,13 @@ app.post('/api/legislation/search-ats', async (req, res) => {
             max_tokens: 250,
           };
 
-          try {
-            const summaryAzureResponse = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'api-key': apiKey,
-              },
-              body: JSON.stringify(summaryPayload),
-            });
+          const summaryResponseData = await callAzureOpenAI(config, 'chat/completions', summaryPayload);
 
-            const summaryResponseData = await summaryAzureResponse.json();
-
-            if (summaryAzureResponse.ok && summaryResponseData.choices && summaryResponseData.choices[0]?.message?.content) {
-              legislacionAplicable = summaryResponseData.choices[0].message.content.trim();
-            } else {
-              console.error('Error from Azure OpenAI summarization service:', summaryResponseData);
-            }
-          } catch (summaryError) {
-            console.error('Error calling Azure OpenAI for summarization:', summaryError);
+          if (summaryResponseData.choices && summaryResponseData.choices[0]?.message?.content) {
+            legislacionAplicable = summaryResponseData.choices[0].message.content.trim();
           }
-        } else {
-          console.error('Azure OpenAI configuration for summarization missing in server .env.');
+        } catch (summaryError) {
+          console.error('Error calling Azure OpenAI for summarization:', summaryError);
         }
       }
     }
@@ -417,53 +380,32 @@ app.post('/api/ai/risk-matrix', async (req, res) => {
 - Sector: ${sector}
 - Procesos: ${processes}
 - Trabajadores: ${workers}
-${history ? `- Historial: ${history}\n` : ''}
+${history ? `- Historial: ${history}
+` : ''}
 
 Identifica peligros, evalúa probabilidad/consecuencia y propone medidas de control.`;
 
-    // Call Azure OpenAI
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
+    const config = getAzureOpenAIConfig('chat');
+    const requestBody = {
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un experto en seguridad laboral que genera matrices de riesgo detalladas con: peligro, riesgo, probabilidad, consecuencia, nivel y medidas de control.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 2000
+    };
 
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      throw new Error('Azure OpenAI configuration missing');
-    }
-
-    const apiUrl = `${azureEndpoint}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: 'Eres un experto en seguridad laboral que genera matrices de riesgo detalladas con: peligro, riesgo, probabilidad, consecuencia, nivel y medidas de control.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
-      })
-    });
-
-    const data = await response.json();
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
     
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Failed to generate risk matrix');
-    }
-
     // Parse AI response into structured format
     const result = {
-      riesgos: parseRisks(data.choices[0]?.message?.content),
+      riesgos: parseRisks(responseData.choices[0]?.message?.content),
       resumen: {
         alto: 0,
         medio: 0,
@@ -573,18 +515,7 @@ app.post('/api/ai/pts-suggestions', async (req, res) => {
       return res.status(400).json({ error: 'Missing "sector" or "processType" in request body' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI PTS suggestions.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
+    const config = getAzureOpenAIConfig('chat');
     const prompt = `Genera 5 sugerencias concisas de actividades para procedimientos de trabajo seguro (PTS) en el sector ${sector} para procesos de tipo ${processType}. 
 Cada sugerencia debe ser una frase corta y práctica.`;
 
@@ -603,24 +534,7 @@ Cada sugerencia debe ser una frase corta y práctica.`;
       max_tokens: 300
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure OpenAI', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     // Parse the AI response into an array of suggestions
     const content = responseData.choices[0]?.message?.content;
@@ -648,18 +562,7 @@ app.post('/api/ai/suggest-actividades', async (req, res) => {
       return res.status(400).json({ error: 'Faltan parámetros requeridos: cargo, sector, empresa' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI suggestions.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
+    const config = getAzureOpenAIConfig('chat');
     const prompt = `Genera 5 sugerencias concisas de actividades laborales para el cargo de ${cargo} en el sector ${sector} de la empresa ${empresa}.
 Cada sugerencia debe ser una frase corta y práctica.`;
 
@@ -678,24 +581,7 @@ Cada sugerencia debe ser una frase corta y práctica.`;
       max_tokens: 300
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure OpenAI', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     // Parse the AI response into an array of suggestions
     const content = responseData.choices[0]?.message?.content;
@@ -723,18 +609,7 @@ app.post('/api/ai/suggest-materiales', async (req, res) => {
       return res.status(400).json({ error: 'Faltan parámetros requeridos: actividades, sector' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI material suggestions.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
+    const config = getAzureOpenAIConfig('chat');
     const prompt = `Genera 5 sugerencias concisas de materiales peligrosos o relevantes para las siguientes actividades en el sector ${sector}:
     
 Actividades: ${actividades}
@@ -756,24 +631,7 @@ Cada sugerencia debe ser una frase corta y práctica.`;
       max_tokens: 300
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure OpenAI', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     // Parse the AI response into an array of suggestions
     const content = responseData.choices[0]?.message?.content;
@@ -785,7 +643,7 @@ Cada sugerencia debe ser una frase corta y práctica.`;
 
   } catch (error) {
     console.error('Error in /api/ai/suggest-materiales:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error generating material suggestions',
       details: error.message 
     });
@@ -801,17 +659,7 @@ app.post('/api/ai/das', async (req, res) => {
       return res.status(400).json({ error: 'Faltan parámetros requeridos' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI DAS generation.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
+    const config = getAzureOpenAIConfig('chat');
 
     const prompt = `Genera un Documento de Análisis de Seguridad (DAS) para:
 - Empresa: ${empresa}
@@ -846,24 +694,7 @@ El DAS debe incluir:
       response_format: { type: "json_object" }
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to generate DAS', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     // Parse the AI response
     const content = responseData.choices[0]?.message?.content;
@@ -900,18 +731,7 @@ app.post('/api/ai/suggest-equipos', async (req, res) => {
       return res.status(400).json({ error: 'Faltan parámetros requeridos: actividades, sector' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI equipment suggestions.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
+    const config = getAzureOpenAIConfig('chat');
     const prompt = `Genera 5 sugerencias concisas de equipos de protección personal (EPP) y herramientas necesarias para las siguientes actividades en el sector ${sector}:
     
 Actividades: ${actividades}
@@ -933,24 +753,7 @@ Cada sugerencia debe ser una frase corta y práctica.`;
       max_tokens: 300
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure OpenAI', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     // Parse the AI response into an array of suggestions
     const content = responseData.choices[0]?.message?.content;
@@ -972,26 +775,50 @@ Cada sugerencia debe ser una frase corta y práctica.`;
 // Policy Generation Endpoint
 app.post('/api/ai/generate-policy', async (req, res) => {
   try {
-    const { company, sector } = req.body;
+    const { company, sector, tipoPolitica } = req.body;
 
-    if (!company || !sector) {
-      return res.status(400).json({ error: 'Missing "company" or "sector" in request body' });
+    if (!company || !sector || !tipoPolitica) {
+      return res.status(400).json({ error: 'Missing "company", "sector", or "tipoPolitica" in request body' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
+    const config = getAzureOpenAIConfig('chat');
 
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI policy generation.' });
+    const prompt = `Genera una política de ${tipoPolitica} para la empresa "${company}" del sector "${sector}".
+La política debe seguir la estructura de normas como ISO 45001.
+La respuesta DEBE ser un objeto JSON válido con la siguiente estructura:
+{
+  "meta": {
+    "empresa": "${company}",
+    "sector": "${sector}",
+    "tipoPolitica": "${tipoPolitica}",
+    "fechaGeneracion": "${new Date().toLocaleDateString()}",
+    "version": "1.0"
+  },
+  "politica": {
+    "titulo": "Política de Seguridad y Salud en el Trabajo",
+    "declaracion": "Un párrafo con el compromiso explícito de la alta dirección con el cumplimiento de requisitos legales, la mejora continua y la satisfacción de las partes interesadas.",
+    "alcance": "Descripción de a quiénes aplica la política (trabajadores, contratistas, etc.) y qué áreas o procesos abarca.",
+    "objetivos": [
+      "Un objetivo general orientado a la eliminación de peligros y reducción de riesgos.",
+      "Otro objetivo relacionado con la promoción de un ambiente de trabajo seguro.",
+      "Un tercer objetivo sobre el cumplimiento normativo."
+    ],
+    "compromisos": [
+      "Principio o compromiso clave 1 (ej: Liderazgo y participación).",
+      "Principio o compromiso clave 2 (ej: Enfoque basado en riesgos).",
+      "Principio o compromiso clave 3 (ej: Mejora continua del sistema de gestión SST)."
+    ],
+    "responsabilidades": {
+      "direccion": ["Responsabilidad 1 de la dirección.", "Responsabilidad 2 de la dirección."],
+      "trabajadores": ["Responsabilidad 1 de los trabajadores.", "Responsabilidad 2 de los trabajadores."],
+      "prevencion": ["Responsabilidad 1 del equipo de prevención."]
+    },
+    "revision": {
+      "periodicidad": "Anual",
+      "responsable": "La Alta Dirección"
     }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
-
-    const prompt = `Genera una política de seguridad y salud en el trabajo para la empresa ${company} del sector ${sector}.
-La política debe ser profesional, clara y cubrir los aspectos principales requeridos por la normativa.`;
+  }
+}`;
 
     const requestBody = {
       messages: [
@@ -1009,24 +836,7 @@ La política debe ser profesional, clara y cubrir los aspectos principales reque
       response_format: { type: "json_object" }
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to generate policy', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     const content = responseData.choices[0]?.message?.content || '';
     res.json({ content });
@@ -1049,20 +859,10 @@ app.post('/api/ai/policy-suggestions', async (req, res) => {
       return res.status(400).json({ error: 'Missing "sector" in request body' });
     }
 
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const chatDeployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-
-    if (!azureEndpoint || !apiKey || !chatDeployment || !apiVersion) {
-      console.error('Azure OpenAI configuration missing in server environment variables.');
-      return res.status(500).json({ error: 'Server configuration error for AI policy suggestions.' });
-    }
-
-    const apiUrl = `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${chatDeployment}/chat/completions?api-version=${apiVersion}`;
+    const config = getAzureOpenAIConfig('chat');
 
     const prompt = `Genera 5 sugerencias concisas de políticas de seguridad para el sector ${sector}. 
-Cada sugerencia debe ser una frase corta y práctica.`;
+Cada sugerencia debe ser una frase corta y práctica.`
 
     const requestBody = {
       messages: [
@@ -1079,24 +879,7 @@ Cada sugerencia debe ser una frase corta y práctica.`;
       max_tokens: 300
     };
 
-    const azureResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const responseData = await azureResponse.json();
-
-    if (!azureResponse.ok) {
-      console.error('Error from Azure OpenAI:', responseData);
-      return res.status(azureResponse.status).json({ 
-        error: 'Failed to get response from Azure OpenAI', 
-        details: responseData 
-      });
-    }
+    const responseData = await callAzureOpenAI(config, 'chat/completions', requestBody);
 
     // Parse the AI response into an array of suggestions
     const content = responseData.choices[0]?.message?.content;

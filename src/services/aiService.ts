@@ -54,6 +54,30 @@ export async function generateRiskMatrix(input: RiskMatrixInput): Promise<{
   }
 }
 
+export async function generateSGSSTSuggestion(
+  componentTitle: string,
+  companyInfo: { sector: string; size: number }
+): Promise<{ suggestion: string }> {
+  try {
+    const response = await fetch('/api/ai/sgsst-suggestion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ componentTitle, companyInfo }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Error generating SGSST suggestion');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in generateSGSSTSuggestion:', error);
+    return { suggestion: 'No se pudo generar la sugerencia.' };
+  }
+}
+
 export async function generatePTSActivitySuggestions(
   sector: string,
   processType: string
@@ -453,8 +477,14 @@ export async function generateInspection(
 
 // Policy generation
 export async function generatePolitica(
+  tipoPolitica: string,
   company: string,
-  sector: string
+  pais: string,
+  sector: string,
+  trabajadores: number,
+  actividades: string,
+  alcance: string,
+  objetivos: string
 ): Promise<{ content: string }> {
   try {
     const response = await fetch('/api/ai/generate-policy', {
@@ -462,7 +492,16 @@ export async function generatePolitica(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ company, sector })
+      body: JSON.stringify({ 
+        tipoPolitica,
+        company, 
+        pais,
+        sector,
+        trabajadores,
+        actividades,
+        alcance,
+        objetivos
+      })
     });
 
     if (!response.ok) {
@@ -476,26 +515,54 @@ export async function generatePolitica(
   }
 }
 
+export interface PolicySuggestionInput {
+  sector: string;
+  actividad?: string;
+  descripcion?: string;
+  fieldToSuggest: 'actividades' | 'alcance' | 'objetivos';
+}
+
 export async function generatePoliticaSuggestions(
-  sector: string
-): Promise<{ suggestions: string[] }> {
+  input: PolicySuggestionInput
+): Promise<{ suggestions: string[]; error?: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+
   try {
     const response = await fetch('/api/ai/policy-suggestions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ sector })
+      body: JSON.stringify(input), // Pass the whole input
+      signal: controller.signal
     });
 
     if (!response.ok) {
-      throw new Error('Error generating policy suggestions');
+      const errorData = await response.json().catch(() => ({}));
+      return { 
+        suggestions: [], 
+        error: errorData.message || `Error del servidor: ${response.status}`
+      };
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    if (!result || !Array.isArray(result.suggestions)) {
+      return { suggestions: [], error: 'Formato de respuesta inválido del servidor.' };
+    }
+
+    return { suggestions: result.suggestions };
   } catch (error) {
-    console.error('Error in generatePoliticaSuggestions:', error);
-    return { suggestions: [] };
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return { suggestions: [], error: 'La solicitud de sugerencias tardó demasiado.' };
+      }
+      return { suggestions: [], error: error.message };
+    }
+    return { suggestions: [], error: 'Error desconocido al generar sugerencias.' };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -524,17 +591,71 @@ export async function generateSuggestions(
   }
 }
 
+export interface AIResponse {
+  content: string;
+  error?: string;
+}
+
+export async function generateSSTRecommendation(
+  context: string,
+  query: string
+): Promise<AIResponse> {
+  try {
+    const response = await fetch('/api/ai/sst-recommendation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ context, query })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error generating SST recommendation');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in generateSSTRecommendation:', error);
+    return { content: '', error: 'Error al generar la recomendación. Por favor, intente nuevamente.' };
+  }
+}
+
+export async function generateSafetyProcedure(
+  taskDescription: string,
+  industry: string
+): Promise<AIResponse> {
+  try {
+    const response = await fetch('/api/ai/safety-procedure', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskDescription, industry })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error generating safety procedure');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in generateSafetyProcedure:', error);
+    return { content: '', error: 'Error al generar el procedimiento. Por favor, intente nuevamente.' };
+  }
+}
+
 export async function generateSafetyTalk(
   topic: string,
-  duration: number
-): Promise<{ content: string }> {
+  duration: number,
+  audience: string
+): Promise<AIResponse> {
   try {
     const response = await fetch('/api/ai/safety-talk', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ topic, duration })
+      body: JSON.stringify({ topic, duration, audience })
     });
 
     if (!response.ok) {
@@ -544,7 +665,32 @@ export async function generateSafetyTalk(
     return await response.json();
   } catch (error) {
     console.error('Error in generateSafetyTalk:', error);
-    return { content: '' };
+    return { content: '', error: 'Error al generar la charla. Por favor, intente nuevamente.' };
+  }
+}
+
+export async function analyzeSafetyTask(
+  taskDescription: string,
+  environment: string,
+  workers: number
+): Promise<AIResponse> {
+  try {
+    const response = await fetch('/api/ai/analyze-safety-task', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskDescription, environment, workers })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error analyzing safety task');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in analyzeSafetyTask:', error);
+    return { content: '', error: 'Error al generar el análisis. Por favor, intente nuevamente.' };
   }
 }
 
@@ -596,7 +742,6 @@ export async function analyzeImage(
   imageHeight: number;
 }> {
   try {
-    // Create FormData to send image
     const formData = new FormData();
     formData.append('image', imageFile);
     formData.append('features', JSON.stringify(options.features));
@@ -620,7 +765,6 @@ export async function analyzeImage(
     };
   } catch (error) {
     console.error('Error en analyzeImage:', error);
-    // Fallback mock data
     return {
       detections: [],
       imageWidth: 800,

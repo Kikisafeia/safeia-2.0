@@ -6,7 +6,7 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { auth } from '../firebase'; // Corrected import path
+import { auth } from '../config/firebase'; // Corrected import path
 import { CompanyProfile } from '../types/company';
 import { getCompanyProfile } from '../services/company';
 

@@ -65,12 +65,11 @@ La respuesta debe estar en formato JSON con la siguiente estructura:
   "condicionesAmbientales": string[]
 }`;
 
-    // Llamar a Azure OpenAI
-    const response = await fetch(`${import.meta.env.VITE_AZURE_OPENAI_ENDPOINT}/openai/deployments/${import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${import.meta.env.VITE_AZURE_OPENAI_API_VERSION}`, {
+    // Llamar al proxy de backend
+    const response = await fetch('/api/azure/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': import.meta.env.VITE_AZURE_OPENAI_API_KEY
       },
       body: JSON.stringify({
         messages: [
@@ -84,25 +83,20 @@ La respuesta debe estar en formato JSON con la siguiente estructura:
           }
         ],
         max_tokens: 2500,
-        temperature: 0.7
+        temperature: 0.7,
+        response_format: { type: "json_object" } // Solicitar un objeto JSON directamente
       })
     });
 
     if (!response.ok) {
-      throw new Error('Error al generar el análisis');
+      const errorData = await response.json();
+      throw new Error(errorData.details || 'Error al generar el análisis desde el servidor');
     }
 
     const data = await response.json();
     
-    // Extraer el JSON del contenido markdown
-    let content = data.choices[0].message.content;
-    
-    // Remover los delimitadores de markdown si existen
-    if (content.includes('```json')) {
-      content = content.replace(/```json\n|\n```/g, '');
-    } else if (content.includes('```')) {
-      content = content.replace(/```\n|\n```/g, '');
-    }
+    // El proxy ya debería manejar la extracción del JSON si se solicitó json_object
+    const content = data.choices[0].message.content;
     
     // Intentar parsear el JSON
     let analysis;

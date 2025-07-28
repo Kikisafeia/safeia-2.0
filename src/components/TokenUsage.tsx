@@ -1,8 +1,7 @@
-import React from 'react';
-import { useSubscription } from '../hooks/useSubscription';
+import { useTokens } from '../hooks/useTokens';
 
 export default function TokenUsage() {
-  const { userData, loading, error, getRemainingTokens, getFeatures } = useSubscription();
+  const { tokens, loading, error } = useTokens();
 
   if (loading) {
     return (
@@ -28,13 +27,13 @@ export default function TokenUsage() {
     );
   }
 
-  if (!userData) {
+  if (tokens === null) {
     return null;
   }
 
-  const remainingTokens = getRemainingTokens();
-  const features = getFeatures();
-  const usagePercentage = ((userData.tokenCount / userData.tokenLimit) * 100).toFixed(1);
+  // Assuming a total limit for display purposes. This should be dynamic.
+  const tokenLimit = 50000; 
+  const usagePercentage = ((tokens / tokenLimit) * 100).toFixed(1);
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-lg">
@@ -43,14 +42,8 @@ export default function TokenUsage() {
       </h3>
       
       <div className="space-y-4">
-        {/* Barra de progreso */}
         <div className="relative pt-1">
           <div className="flex mb-2 items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-safeia-yellow bg-safeia-yellow/10">
-                {userData.subscription}
-              </span>
-            </div>
             <div className="text-right">
               <span className="text-xs font-semibold inline-block text-safeia-yellow">
                 {usagePercentage}%
@@ -64,61 +57,16 @@ export default function TokenUsage() {
             ></div>
           </div>
         </div>
-
-        {/* Información de tokens */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-gray-500">Tokens Disponibles</p>
-            <p className="font-semibold text-gray-900">{remainingTokens}</p>
+            <p className="font-semibold text-gray-900">{tokens}</p>
           </div>
           <div>
             <p className="text-gray-500">Límite Total</p>
-            <p className="font-semibold text-gray-900">{userData.tokenLimit}</p>
+            <p className="font-semibold text-gray-900">{tokenLimit}</p>
           </div>
         </div>
-
-        {/* Características del plan */}
-        {features && (
-          <div className="mt-6">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">
-              Características del Plan
-            </h4>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center text-gray-700">
-                <span className={features.hasWatermark ? 'text-red-500' : 'text-green-500'}>
-                  {features.hasWatermark ? '•' : '✓'}
-                </span>
-                <span className="ml-2">
-                  {features.hasWatermark ? 'Con marca de agua' : 'Sin marca de agua'}
-                </span>
-              </li>
-              <li className="flex items-center text-gray-700">
-                <span className={features.hasAdvancedFeatures ? 'text-green-500' : 'text-red-500'}>
-                  {features.hasAdvancedFeatures ? '✓' : '•'}
-                </span>
-                <span className="ml-2">Características avanzadas</span>
-              </li>
-              <li className="flex items-center text-gray-700">
-                <span className={features.hasCustomDomain ? 'text-green-500' : 'text-red-500'}>
-                  {features.hasCustomDomain ? '✓' : '•'}
-                </span>
-                <span className="ml-2">Dominio personalizado</span>
-              </li>
-              <li className="flex items-center text-gray-700">
-                <span className={features.hasAnalytics ? 'text-green-500' : 'text-red-500'}>
-                  {features.hasAnalytics ? '✓' : '•'}
-                </span>
-                <span className="ml-2">Análisis detallado</span>
-              </li>
-              <li className="flex items-center text-gray-700">
-                <span className={features.hasPrioritySupport ? 'text-green-500' : 'text-red-500'}>
-                  {features.hasPrioritySupport ? '✓' : '•'}
-                </span>
-                <span className="ml-2">Soporte prioritario</span>
-              </li>
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );

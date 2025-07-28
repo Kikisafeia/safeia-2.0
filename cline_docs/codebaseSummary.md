@@ -1,5 +1,7 @@
 # Resumen de la Base de Código SAFEIA
 
+Para una descripción visual y detallada de la arquitectura del sistema, consulte el documento [SAFEIA_Arquitectura.md](./SAFEIA_Arquitectura.md).
+
 ## Estructura principal
 
 - **src/components/**: Componentes de UI reutilizables (formularios, dashboards, navegación, etc.).
@@ -41,6 +43,8 @@
 
 ## Cambios recientes
 
+- **Se refactorizaron `src/pages/ObligacionInformar.tsx` y `src/services/ats.ts` para que todas las llamadas a Azure OpenAI se realicen a través del backend proxy (`/api/azure/chat/completions`), eliminando la exposición directa de claves API en el frontend.**
+- **Se unificó la implementación de los endpoints de backend `/api/ai/das`, `/api/ai/generate-policy` y `/api/ai/policy-suggestions` en `server/index.js` para utilizar consistentemente las funciones auxiliares `getAzureOpenAIConfig` y `callAzureOpenAI`, mejorando la modularidad y consistencia.**
 - Se implementó una auditoría de seguridad y rendimiento.
 - Se crearon archivos de documentación en `cline_docs` para roadmap, tareas, stack y resumen.
 - Se verificó la ausencia de patrones inseguros en servicios y utilidades.
@@ -52,7 +56,10 @@
 - **Se implementó un backend proxy en `server/index.js` para gestionar de forma segura las llamadas a los servicios de Azure OpenAI, mitigando una vulnerabilidad crítica de exposición de claves API.**
 - **Se consolidaron los servicios de IA frontend en `src/services/aiService.ts`, eliminando los archivos redundantes `openai.ts`, `azureOpenAI.ts` y el problemático `ai.ts`.**
 - **Se refactorizaron `aiService.ts`, `src/hooks/useSuggestions.ts`, `src/services/investigation.ts`, `src/services/riskMatrix.ts`, `src/services/legal.ts` y `src/services/audit.ts` para usar el backend proxy y las rutas de importación correctas.**
-- **Se eliminaron las claves API de Azure OpenAI del archivo `.env` del frontend.**
+- **Se eliminó el archivo `src/api/azure-openai.ts` y se confirmó que las claves API de Azure OpenAI no están expuestas en el frontend, ya que todas las llamadas se realizan a través del backend proxy.**
+- **Se consolidó la configuración de Firebase en `src/config/firebase.ts`, eliminando el archivo redundante `src/firebase.ts` y actualizando todas las importaciones para usar la nueva ruta centralizada.**
+- **Se eliminó el componente `src/components/TestConnection.vue` (componente Vue.js obsoleto en un proyecto React).**
+- **Se eliminó el archivo `src/services/azure-ai.ts` y sus funciones se consolidaron en `src/services/aiService.ts`, asegurando que todas las interacciones con Azure OpenAI pasen por el backend proxy.**
 - **Se simplificó la definición de rutas en `src/App.tsx` eliminando una definición duplicada de la ruta `/pricing`.**
 - **Se refactorizó `src/services/braveSearchService.ts` para eliminar la implementación mock y clarificar el uso del MCP tool.**
     - **Se eliminó el archivo redundante `src/services/mcp.ts`.**

@@ -1,20 +1,17 @@
-import { StreamCallbacks, MessageEvent } from '../types/stream';
+import { StreamCallbacks, MessageData } from '../types/stream';
 
-const DIFY_API_URL = import.meta.env.VITE_DIFY_API_URL || 'https://api.dify.ai/v1';
-const DIFY_API_KEY = import.meta.env.VITE_DIFY_API_KEY;
+// The Dify API URL and Key are now handled by the backend proxy.
+// No longer need to expose them to the client.
 
-interface DifyResponse {
-  conversation_id?: string;
-  message?: string;
-}
 
 export const difyService = {
   async createConversation(): Promise<string> {
     try {
-      const response = await fetch(`${DIFY_API_URL}/chat-messages`, {
+      // All calls now go through the local backend proxy
+      const response = await fetch(`/api/dify/chat-messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${DIFY_API_KEY}`,
+          // Authorization is handled by the backend, no longer needed here.
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -52,10 +49,11 @@ export const difyService = {
         conversation_id: conversationId || undefined
       };
 
-      const response = await fetch(`${DIFY_API_URL}/chat-messages`, {
+      // All calls now go through the local backend proxy
+      const response = await fetch(`/api/dify/chat-messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${DIFY_API_KEY}`,
+          // Authorization is handled by the backend, no longer needed here.
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
         },
@@ -101,10 +99,10 @@ export const difyService = {
               }
               const jsonData = JSON.parse(eventData);
               if (jsonData.answer) {
-                callbacks.onMessage({ 
-                  type: 'message', 
-                  data: jsonData.answer 
-                });
+                callbacks.onMessage({
+                  type: 'message',
+                  data: jsonData.answer
+                } as MessageData);
                 receivedContent = true;
               }
             } catch (e) {

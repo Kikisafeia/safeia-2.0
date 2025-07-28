@@ -1,7 +1,6 @@
 import React, { useState } from 'react'; // Added useState
 import ToolGenerator from '../../components/tools/ToolGenerator';
 import { generateDAS, suggestActividadesATS, suggestEquiposATS, suggestMaterialesATS } from '../../services/aiService'; // Added suggestion services
-import { Wand2 } from 'lucide-react'; // For a potential icon, though ToolGenerator uses its own
 
 const sectores = [
   'Construcción',
@@ -135,13 +134,6 @@ const ATS: React.FC = () => {
     );
   };
 
-  // State for loading individual suggestions (optional, if we want per-button loading state different from ToolGenerator's internal one)
-  // ToolGenerator already has a 'loadingSuggestions' state, so we might not need these if we rely on its UI.
-  // For now, we'll assume ToolGenerator's loading state is sufficient for field suggestions.
-  // Add a new loading state for the automated legislation search.
-  const [loadingAutomatedLegislation, setLoadingAutomatedLegislation] = useState(false);
-  const [automatedLegislationError, setAutomatedLegislationError] = useState<string | null>(null);
-
 
   const handleSuggestActividades = async (currentFormData: Record<string, any>): Promise<string> => {
     if (!currentFormData.cargo || !currentFormData.sector) {
@@ -196,8 +188,6 @@ const ATS: React.FC = () => {
   };
 
   const handleGenerateDAS = async (formData: Record<string, any>): Promise<any> => {
-    setLoadingAutomatedLegislation(true);
-    setAutomatedLegislationError(null);
     let legislacionParaIA = formData.legislacionAplicable; // Use if manually provided by assistant
 
     if (!legislacionParaIA) { // If not manually provided, try to fetch automatically
@@ -218,12 +208,8 @@ const ATS: React.FC = () => {
         legislacionParaIA = legislationData.legislacionAplicable;
       } catch (error) {
         console.error("Error fetching automated legislation:", error);
-        setAutomatedLegislationError(error instanceof Error ? error.message : String(error));
-        // Proceed without automated legislation, or with a default/error message
-        // legislacionParaIA will remain undefined or use a default from below if needed
-        // For now, if auto-search fails, it will be undefined, and aiService will handle it.
-      } finally {
-        setLoadingAutomatedLegislation(false);
+        // Proceed without automated legislation
+        // aiService will handle missing legislation
       }
     }
 

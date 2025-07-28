@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, CACHE_SIZE_UNLIMITED } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { 
   getAuth, 
   setPersistence, 
@@ -9,10 +10,8 @@ import {
   connectAuthEmulator
 } from 'firebase/auth';
 
-// Configuración de Firebase con soporte para dominio personalizado
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  // Usar el dominio personalizado como authDomain si está disponible
   authDomain: import.meta.env.VITE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
@@ -21,41 +20,31 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Inicializar Firebase
 let app;
 try {
   app = initializeApp(firebaseConfig);
-  console.log('Firebase App inicializado correctamente');
 } catch (error) {
   console.error('Error al inicializar Firebase App:', error);
   throw error;
 }
 
-// Inicializar Auth
-const auth = getAuth(app);
-console.log('Firebase Auth inicializado correctamente');
+export const auth = getAuth(app);
 
-// Configurar el emulador si está habilitado
 if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
   try {
     connectAuthEmulator(auth, 'http://localhost:9099');
-    console.log('Emulador de Auth conectado correctamente');
   } catch (error) {
     console.error('Error al conectar el emulador de Auth:', error);
   }
 }
 
-// Inicializar Firestore con manejo de errores
-let db;
-try {
-  db = getFirestore(app);
-  console.log('Firestore inicializado correctamente');
-} catch (error) {
-  console.error('Error al inicializar Firestore:', error);
-  throw error;
-}
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  cacheSizeBytes: CACHE_SIZE_UNLIMITED 
+});
 
-// Configurar persistencia con fallback
+export const storage = getStorage(app);
+
 const configurePersistence = async () => {
   const testLocalStorage = () => {
     try {
@@ -71,26 +60,21 @@ const configurePersistence = async () => {
   try {
     if (testLocalStorage()) {
       await setPersistence(auth, browserLocalPersistence);
-      console.log('Persistencia local configurada correctamente');
     } else {
       await setPersistence(auth, inMemoryPersistence);
-      console.log('Persistencia en memoria configurada como fallback');
     }
   } catch (error) {
     console.error('Error al configurar la persistencia:', error);
-    // Intentar fallback a persistencia en memoria
     try {
       await setPersistence(auth, inMemoryPersistence);
-      console.log('Fallback a persistencia en memoria configurado correctamente');
     } catch (fallbackError) {
       console.error('Error en fallback de persistencia:', fallbackError);
     }
   }
 };
 
-// Configurar persistencia inmediatamente
 configurePersistence().catch(error => {
   console.error('Error en la configuración de persistencia:', error);
 });
 
-export { app, auth, db };
+export default app;

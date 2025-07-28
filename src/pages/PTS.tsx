@@ -4,11 +4,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FileCheck, Loader2 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
-import PTSDocument, { PTSPreview } from '../components/PTSDocument';
+import PTSDocument from '../components/PTSDocument';
 
 interface PTSResponse {
   content: string;
-  images: {
+  images?: {
     section: string;
     url: string;
   }[];
@@ -16,7 +16,8 @@ interface PTSResponse {
 
 export default function PTS() {
   const [sector, setSector] = useState('');
-  const [suggestions, setSuggestions] = useState<{ activities: string[]; description: string } | null>(null);
+  const [processType, setProcessType] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [formData, setFormData] = useState({
     activity: '',
@@ -28,19 +29,18 @@ export default function PTS() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ptsData, setPtsData] = useState<PTSResponse | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [title, setTitle] = useState('');
 
   const handleSectorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sector.trim()) return;
+    if (!sector.trim() || !processType.trim()) return;
     
     setLoadingSuggestions(true);
-    setSuggestions(null);
+    setSuggestions([]);
     setError(null);
     
     try {
-      const result = await generatePTSActivitySuggestions(sector);
+      const result = await generatePTSActivitySuggestions(sector, processType);
       setSuggestions(result);
     } catch (err) {
       console.error('Error en handleSectorSubmit:', err);
@@ -69,7 +69,10 @@ export default function PTS() {
         formData.equipment,
         formData.location
       );
-      setPtsData(pts);
+      setPtsData({
+        content: pts.content,
+        images: pts.images || [],
+      });
       setTitle(`Procedimiento de Trabajo Seguro para ${formData.activity}`);
     } catch (err) {
       setError('Error generando el PTS. Por favor intente nuevamente.');
@@ -90,6 +93,8 @@ export default function PTS() {
   const processMarkdownWithImages = (content: string, images: PTSResponse['images']) => {
     let processedContent = content;
     
+    if (!images) return processedContent;
+
     // Insertar imágenes en las secciones correspondientes
     images.forEach(({ section, url }) => {
       const sectionHeaders = {
@@ -156,9 +161,22 @@ export default function PTS() {
                 placeholder="Ej: Construcción, Minería, Manufactura..."
               />
             </div>
+            <div>
+              <label htmlFor="processType" className="block text-sm font-medium text-gray-700">
+                Tipo de Proceso
+              </label>
+              <input
+                type="text"
+                id="processType"
+                value={processType}
+                onChange={(e) => setProcessType(e.target.value)}
+                className="mt-1 block w-full rounded-md border-safeia-yellow shadow-sm focus:border-safeia-yellow focus:ring-safeia-yellow"
+                placeholder="Ej: Soldadura, Izaje de cargas, Trabajo en altura..."
+              />
+            </div>
             <button
               type="submit"
-              disabled={loadingSuggestions || !sector.trim()}
+              disabled={loadingSuggestions || !sector.trim() || !processType.trim()}
               className="w-full px-4 py-2 bg-safeia-yellow text-safeia-black rounded-md hover:bg-safeia-yellow-dark transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {loadingSuggestions ? (
@@ -179,16 +197,12 @@ export default function PTS() {
           )}
 
           {/* Suggestions Display */}
-          {suggestions && (
+          {suggestions.length > 0 && (
             <div className="mt-6">
-              <div className="mb-4">
-                <h3 className="text-lg font-medium text-safeia-black">Descripción del Sector</h3>
-                <p className="mt-2 text-gray-600">{suggestions.description}</p>
-              </div>
               <div>
                 <h3 className="text-lg font-medium text-safeia-black">Actividades Sugeridas</h3>
                 <div className="mt-2 space-y-2">
-                  {suggestions.activities.map((activity, index) => (
+                  {suggestions.map((activity, index) => (
                     <button
                       key={index}
                       onClick={() => selectSuggestedActivity(activity)}

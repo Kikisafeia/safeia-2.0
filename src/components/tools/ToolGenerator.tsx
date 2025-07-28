@@ -16,9 +16,10 @@ interface ToolGeneratorProps<TResult> { // Added generic type TResult
     options?: Array<{ value: string; label: string }>;
     placeholder?: string;
   }>;
-  generateFunction: (formData: FormData) => Promise<TResult>; // Use FormData and TResult
+  generateFunction: (formData: FormData) => Promise<TResult | undefined>; // Use FormData and TResult
   suggestionFunctions?: Record<string, (formData: FormData) => Promise<string>>; // Use FormData
   resultTemplate: (result: TResult) => React.ReactNode; // Use TResult
+  onReset?: () => void;
 }
 
 const ToolGenerator = <TResult,>({ // Apply generic type TResult
@@ -27,7 +28,8 @@ const ToolGenerator = <TResult,>({ // Apply generic type TResult
   formFields,
   generateFunction,
   suggestionFunctions = {},
-  resultTemplate
+  resultTemplate,
+  onReset
 }: ToolGeneratorProps<TResult>): React.ReactElement => { // Add explicit prop types and return type
   const [loading, setLoading] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -50,7 +52,9 @@ const ToolGenerator = <TResult,>({ // Apply generic type TResult
 
     try {
       const generatedResult = await generateFunction(formData);
-      setResult(generatedResult);
+      if (generatedResult) {
+        setResult(generatedResult);
+      }
     } catch (error) {
       console.error('Error generating result:', error);
       setError(error instanceof Error ? error.message : 'Error generating result');
@@ -83,27 +87,76 @@ const ToolGenerator = <TResult,>({ // Apply generic type TResult
   };
 
   const handleDownloadPDF = () => {
-    if (!result) return;
+    if (!result || !(result as any).content) return;
 
+    const policyData = JSON.parse((result as any).content);
+    const { meta, politica } = policyData;
     const doc = new jsPDF();
-    // Implementación genérica de PDF basada en la estructura del resultado
-    doc.text(JSON.stringify(result, null, 2), 10, 10);
-    doc.save(`${title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+    let yPos = 20;
+
+    doc.setFontSize(18);
+    doc.text(`POLÍTICA DE ${politica.titulo.toUpperCase()}`, 105, yPos, { align: 'center' });
+    yPos += 10;
+    doc.setFontSize(14);
+    doc.text(meta.empresa, 105, yPos, { align: 'center' });
+    yPos += 15;
+
+    const addSection = (title: string, content: string | string[]) => {
+      if (!content) return;
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, 15, yPos);
+      yPos += 7;
+      doc.setFont('helvetica', 'normal');
+      if (Array.isArray(content)) {
+        content.forEach(item => {
+          const splitText = doc.splitTextToSize(`- ${item}`, 180);
+          doc.text(splitText, 20, yPos);
+          yPos += (splitText.length * 5);
+        });
+      } else {
+        const splitText = doc.splitTextToSize(content, 180);
+        doc.text(splitText, 15, yPos);
+        yPos += (splitText.length * 5) + 5;
+      }
+    };
+
+    addSection('DECLARACIÓN', politica.declaracion);
+    addSection('ALCANCE', politica.alcance);
+    addSection('OBJETIVOS', politica.objetivos);
+    addSection('COMPROMISOS', politica.compromisos);
+
+    doc.save(`politica_${meta.empresa.toLowerCase().replace(/\s+/g, '_')}.pdf`);
   };
 
   const handleDownloadWord = async () => {
-    if (!result) return;
+    if (!result || !(result as any).content) return;
+
+    const policyData = JSON.parse((result as any).content);
+    const { meta, politica } = policyData;
+
+    const createSection = (title: string, content: string | string[]) => {
+      if (!content) return [];
+      const children = [new Paragraph({ text: title, heading: HeadingLevel.HEADING_2 })];
+      if (Array.isArray(content)) {
+        content.forEach(item => {
+          children.push(new Paragraph({ text: item, bullet: { level: 0 } }));
+        });
+      } else {
+        children.push(new Paragraph(content));
+      }
+      return children;
+    };
 
     const doc = new Document({
       sections: [{
-        properties: {},
         children: [
-          new Paragraph({
-            text: title,
-            heading: HeadingLevel.HEADING_1,
-            alignment: 'center',
-          }),
-          new Paragraph({ text: JSON.stringify(result, null, 2) })
+          new Paragraph({ text: `POLÍTICA DE ${politica.titulo.toUpperCase()}`, heading: HeadingLevel.HEADING_1, alignment: 'center' }),
+          new Paragraph({ text: meta.empresa, alignment: 'center' }),
+          ...createSection('DECLARACIÓN', politica.declaracion),
+          ...createSection('ALCANCE', politica.alcance),
+          ...createSection('OBJETIVOS', politica.objetivos),
+          ...createSection('COMPROMISOS', politica.compromisos),
         ],
       }],
     });
@@ -193,6 +246,15 @@ const ToolGenerator = <TResult,>({ // Apply generic type TResult
             </div>
 
             <div className="flex justify-end">
+              {onReset && (
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="px-6 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 mr-4"
+                >
+                  Cancelar
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={loading}

@@ -33,6 +33,7 @@
 
 ## Tareas completadas
 
+- Refactorización de las interacciones con la API de Azure OpenAI para usar el proxy de backend y unificar las funciones auxiliares.
 - Revisión de servicios y utilidades: sin patrones inseguros ni malas prácticas detectadas.
 - Revisión de configuración y dependencias: stack moderno, sin paquetes obsoletos ni riesgos evidentes.
 - Revisión de reglas de Firestore: acceso mínimo necesario, sin exposición de datos.

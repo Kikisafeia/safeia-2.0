@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Download, Wand2, Check, X } from 'lucide-react';
-import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
 import { BlobProvider, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 
 interface Sugerencia {
@@ -111,15 +110,6 @@ const ObligacionInformar: React.FC = () => {
 
     setLoading(true);
     try {
-      const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-      const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-      const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-
-      const client = new OpenAIClient(
-        endpoint,
-        new AzureKeyCredential(apiKey)
-      );
-
       const messages = [
         {
           role: "system",
@@ -140,11 +130,24 @@ const ObligacionInformar: React.FC = () => {
         }
       ];
 
-      const result = await client.getChatCompletions(deployment, messages, {
-        temperature: 0.7,
-        maxTokens: 1000,
+      const response = await fetch('/api/azure/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Error al generar sugerencias desde el servidor');
+      }
+
+      const result = await response.json();
       const content = result.choices[0].message?.content;
       if (!content) {
         throw new Error('No se recibió respuesta del servicio de IA');
@@ -180,15 +183,6 @@ const ObligacionInformar: React.FC = () => {
 
     setLoading(true);
     try {
-      const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-      const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-      const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT;
-
-      const client = new OpenAIClient(
-        endpoint,
-        new AzureKeyCredential(apiKey)
-      );
-
       const selectedTareas = sugerencias
         .filter(sug => sug.selected)
         .map((tarea, index) => `
@@ -235,40 +229,32 @@ const ObligacionInformar: React.FC = () => {
         }
       ];
 
-      const result = await client.getChatCompletions(deployment, messages, {
-        temperature: 0.7,
-        maxTokens: 2000,
+      const response = await fetch('/api/azure/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          response_format: { type: "json_object" } // Request JSON object
+        }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Error al generar ODI desde el servidor');
+      }
+
+      const result = await response.json();
       const content = result.choices[0].message?.content;
       if (!content) {
         throw new Error('No se recibió respuesta del servicio de IA');
       }
 
-      const introduccionMatch = content.match(/Introducción:\s*([\s\S]*?)(?=\n\nMedidas Preventivas:)/);
-      const medidasMatch = content.match(/Medidas Preventivas:\s*([\s\S]*?)(?=\n\nElementos de Protección Personal:)/);
-      const eppsMatch = content.match(/Elementos de Protección Personal:\s*([\s\S]*?)(?=\n\nProcedimientos de Emergencia:)/);
-      const procedimientosMatch = content.match(/Procedimientos de Emergencia:\s*([\s\S]*?)(?=\n\nDerechos y Obligaciones:)/);
-      const derechosMatch = content.match(/Derechos y Obligaciones:\s*([\s\S]*?)(?=$)/);
-
-      if (!introduccionMatch || !medidasMatch || !eppsMatch || !procedimientosMatch || !derechosMatch) {
-        throw new Error('El formato de la respuesta no es válido');
-      }
-
-      const parseList = (text: string): string[] => {
-        return text
-          .split('\n')
-          .filter(line => line.trim().startsWith('-'))
-          .map(line => line.replace('-', '').trim());
-      };
-
-      const odiDoc: ODIDocument = {
-        introduccion: introduccionMatch[1].trim(),
-        medidas_preventivas: parseList(medidasMatch[1]),
-        elementos_proteccion: parseList(eppsMatch[1]),
-        procedimientos_emergencia: parseList(procedimientosMatch[1]),
-        derechos_obligaciones: parseList(derechosMatch[1])
-      };
+      // Assuming the AI now returns a JSON object directly
+      const odiDoc: ODIDocument = JSON.parse(content);
 
       setOdiDocument(odiDoc);
     } catch (error) {

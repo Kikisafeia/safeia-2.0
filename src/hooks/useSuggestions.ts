@@ -50,7 +50,7 @@ const useSuggestions = (params: SuggestionParams): UseSuggestionsOutput => {
     } finally {
       setIsLoadingActivities(false);
     }
-  }, [params.tipo, params.area]);
+  }, [params]);
 
   // Updated to return string[] after extracting from SuggestionResponse
   const suggestRisks = useCallback(async (): Promise<string[]> => {
@@ -70,7 +70,7 @@ const useSuggestions = (params: SuggestionParams): UseSuggestionsOutput => {
     } finally {
       setIsLoadingRisks(false);
     }
-  }, [params.tipo, params.area, params.actividades]);
+  }, [params]);
 
   // Updated to return string[] after extracting from SuggestionResponse
   const suggestNorms = useCallback(async (): Promise<string[]> => {
@@ -90,7 +90,7 @@ const useSuggestions = (params: SuggestionParams): UseSuggestionsOutput => {
     } finally {
       setIsLoadingNorms(false);
     }
-  }, [params.tipo, params.area, params.pais]);
+  }, [params]);
 
   return {
     suggestActivities,

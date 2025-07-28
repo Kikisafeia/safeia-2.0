@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -76,17 +76,17 @@ export function useSubscription() {
     loadSubscriptionData();
   }, [currentUser]);
 
-  const checkAccess = async (): Promise<boolean> => {
+  const checkAccess = useCallback(async (): Promise<boolean> => {
     if (!currentUser) return false;
     return checkSubscriptionStatus(currentUser.uid);
-  };
+  }, [currentUser]);
 
-  const getTrialDaysLeft = (): number => {
+  const getTrialDaysLeft = useCallback((): number => {
     if (!subscription || subscription.status !== 'trial') return 0;
     const now = new Date();
     const trialEnd = new Date(subscription.trialEndsAt);
     return Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-  };
+  }, [subscription]);
 
   return {
     subscription,
